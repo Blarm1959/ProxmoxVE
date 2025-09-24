@@ -10,6 +10,24 @@
 > [!CAUTION]
 Exercise vigilance regarding copycat or coat-tailing sites that seek to exploit the project's popularity for potentially malicious purposes.
 
+## 2025-09-24
+
+### 🆕 New Scripts
+
+  - Add Script: Joplin Server ([#7879](https://github.com/community-scripts/ProxmoxVE/pull/7879))
+
+### 🚀 Updated Scripts
+
+  - #### 🐞 Bug Fixes
+
+    - Monica: Fix dependencies [@tremor021](https://github.com/tremor021) ([#7877](https://github.com/community-scripts/ProxmoxVE/pull/7877))
+
+### 🌐 Website
+
+  - #### 📝 Script Information
+
+    - Update name in lxc-delete.json to 'PVE LXC Deletion' [@michelroegl-brunner](https://github.com/michelroegl-brunner) ([#7872](https://github.com/community-scripts/ProxmoxVE/pull/7872))
+
 ## 2025-09-23
 
 ### 🆕 New Scripts
