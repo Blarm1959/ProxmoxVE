@@ -10,6 +10,24 @@
 > [!CAUTION]
 Exercise vigilance regarding copycat or coat-tailing sites that seek to exploit the project's popularity for potentially malicious purposes.
 
+## 2025-09-25
+
+### 🆕 New Scripts
+
+  - GoAway ([#7900](https://github.com/community-scripts/ProxmoxVE/pull/7900))
+
+### 🚀 Updated Scripts
+
+  - #### ✨ New Features
+
+    - ntfy: bump to debian 13 [@CrazyWolf13](https://github.com/CrazyWolf13) ([#7895](https://github.com/community-scripts/ProxmoxVE/pull/7895))
+
+### 🌐 Website
+
+  - #### ✨ New Features
+
+    - feat: add menu icons to website [@BramSuurdje](https://github.com/BramSuurdje) ([#7894](https://github.com/community-scripts/ProxmoxVE/pull/7894))
+
 ## 2025-09-24
 
 ### 🆕 New Scripts
