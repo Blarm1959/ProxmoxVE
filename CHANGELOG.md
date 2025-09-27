@@ -10,6 +10,31 @@
 > [!CAUTION]
 Exercise vigilance regarding copycat or coat-tailing sites that seek to exploit the project's popularity for potentially malicious purposes.
 
+## 2025-09-27
+
+### 🚀 Updated Scripts
+
+  - #### 🐞 Bug Fixes
+
+    - GoAway: Make admin password aquisition more reliable [@tremor021](https://github.com/tremor021) ([#7946](https://github.com/community-scripts/ProxmoxVE/pull/7946))
+    - MeTube: Various fixes [@vhsdream](https://github.com/vhsdream) ([#7936](https://github.com/community-scripts/ProxmoxVE/pull/7936))
+    - Oddo: Fix typo in update procedure [@tremor021](https://github.com/tremor021) ([#7941](https://github.com/community-scripts/ProxmoxVE/pull/7941))
+
+## 2025-09-26
+
+### 🚀 Updated Scripts
+
+  - #### 🐞 Bug Fixes
+
+    - Odoo: Fix missing dependencies [@tremor021](https://github.com/tremor021) ([#7931](https://github.com/community-scripts/ProxmoxVE/pull/7931))
+    - OpenWebUI: Update NODE_OPTIONS to increase memory limit [@michelroegl-brunner](https://github.com/michelroegl-brunner) ([#7919](https://github.com/community-scripts/ProxmoxVE/pull/7919))
+
+### 🌐 Website
+
+  - #### 📝 Script Information
+
+    - Clarify descriptions of update scripts [@tremor021](https://github.com/tremor021) ([#7929](https://github.com/community-scripts/ProxmoxVE/pull/7929))
+
 ## 2025-09-25
 
 ### 🆕 New Scripts
