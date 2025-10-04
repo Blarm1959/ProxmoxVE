@@ -81,7 +81,7 @@ $STD apt-get update
 $STD apt-get install -y jellyfin-ffmpeg7
 ln -s /usr/lib/jellyfin-ffmpeg/ffmpeg /usr/bin/ffmpeg
 ln -s /usr/lib/jellyfin-ffmpeg/ffprobe /usr/bin/ffprobe
-if [[ "$CTTYPE" == "0" ]]; then
+if [[ "$CTTYPE" == "0" && -d /dev/dri ]]; then
   chgrp video /dev/dri
   chmod 755 /dev/dri
   chmod 660 /dev/dri/*
@@ -272,7 +272,7 @@ GEO_DIR="${INSTALL_DIR}/geodata"
 mkdir -p "$INSTALL_DIR"
 mkdir -p {"${APP_DIR}","${UPLOAD_DIR}","${GEO_DIR}","${INSTALL_DIR}"/cache}
 
-fetch_and_deploy_gh_release "immich" "immich-app/immich" "tarball" "v1.143.1" "$SRC_DIR"
+fetch_and_deploy_gh_release "immich" "immich-app/immich" "tarball" "v2.0.1" "$SRC_DIR"
 
 msg_info "Installing ${APPLICATION} (patience)"
 
@@ -451,4 +451,5 @@ customize
 msg_info "Cleaning up"
 $STD apt-get -y autoremove
 $STD apt-get -y autoclean
+$STD apt clean -y
 msg_ok "Cleaned"

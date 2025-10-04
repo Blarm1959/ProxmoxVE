@@ -74,7 +74,7 @@ function update_script() {
     done
     msg_ok "Image-processing libraries up to date"
   fi
-  RELEASE="1.143.1"
+  RELEASE="2.0.1"
   if check_for_gh_release "immich" "immich-app/immich" "${RELEASE}"; then
     msg_info "Stopping Services"
     systemctl stop immich-web
@@ -158,6 +158,7 @@ EOF
 
     cd "$SRC_DIR"/machine-learning
     mkdir -p "$ML_DIR" && chown -R immich:immich "$ML_DIR"
+    chown immich:immich ./uv.lock
     export VIRTUAL_ENV="${ML_DIR}"/ml-venv
     if [[ -f ~/.openvino ]]; then
       msg_info "Updating HW-accelerated machine-learning"
@@ -190,6 +191,7 @@ EOF
     msg_info "Cleaning up"
     $STD apt-get -y autoremove
     $STD apt-get -y autoclean
+    $STD apt clean -y
     msg_ok "Cleaned"
     systemctl restart immich-ml immich-web
   fi
