@@ -29,7 +29,6 @@ function update_script() {
   # Variables
   DISPATCH_USER="dispatcharr"
   DISPATCH_GROUP="dispatcharr"
-  APP="dispatcharr"
   APP_DIR="/opt/dispatcharr"
 
   POSTGRES_DB="dispatcharr"
@@ -46,6 +45,11 @@ function update_script() {
   # Check if installation is present
   if [[ ! -d "$APP_DIR" ]]; then
     msg_error "No ${APP} Installation Found!"
+    exit
+  fi
+
+  if check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
+    msg_error "No ${APP} GitHub Found!"
     exit
   fi
 
@@ -69,7 +73,7 @@ function update_script() {
 
   # --- Backup important paths ---
   msg_info "Creating Backup"
-  tar -czf "/opt/${APP}_backup_$(date +%F).tar.gz" "$APP_DIR" /data /etc/nginx/sites-available/dispatcharr.conf /etc/systemd/system/dispatcharr.service /etc/systemd/system/dispatcharr-celery.service /etc/systemd/system/dispatcharr-celerybeat.service /etc/systemd/system/dispatcharr-daphne.service 2>/dev/null || true
+  tar -czf "${APP_DIR}_backup_$(date +%F).tar.gz" "$APP_DIR" /data /etc/nginx/sites-available/dispatcharr.conf /etc/systemd/system/dispatcharr.service /etc/systemd/system/dispatcharr-celery.service /etc/systemd/system/dispatcharr-celerybeat.service /etc/systemd/system/dispatcharr-daphne.service 2>/dev/null || true
   msg_ok "Backup Created"
 
   # --- Stop services (safer for file replacement) ---
@@ -81,7 +85,7 @@ function update_script() {
 
   # Fetch latest release into APP_DIR (PVE Helper tools.func)
   msg_info "Fetching latest Dispatcharr release"
-  APP="$APP" DESTDIR="$APP_DIR" fetch_and_deploy_gh_release "Dispatcharr/Dispatcharr" "latest" ""
+  fetch_and_deploy_gh_release "Dispatcharr/Dispatcharr" "latest"
   $STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
   msg_ok "Release deployed"
 
