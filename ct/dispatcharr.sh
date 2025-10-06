@@ -24,47 +24,112 @@ function update_script() {
   check_container_storage
   check_container_resources
 
-  # Check if installation is present | -f for file, -d for folder
-  if [[ ! -f [INSTALLATION_CHECK_PATH] ]]; then
+  ## Blarm1959 Start ##
+
+  # Variables
+  DISPATCH_USER="dispatcharr"
+  DISPATCH_GROUP="dispatcharr"
+  APP="dispatcharr"
+  APP_DIR="/opt/dispatcharr"
+
+  POSTGRES_DB="dispatcharr"
+  POSTGRES_USER="dispatch"
+  POSTGRES_PASSWORD="secret"
+
+  NGINX_HTTP_PORT="9191"
+  WEBSOCKET_PORT="8001"
+  GUNICORN_RUNTIME_DIR="dispatcharr"
+  GUNICORN_SOCKET="/run/${GUNICORN_RUNTIME_DIR}/dispatcharr.sock"
+  PYTHON_BIN="$(command -v python3)"
+
+
+  # Check if installation is present
+  if [[ ! -d "$APP_DIR" ]]; then
     msg_error "No ${APP} Installation Found!"
     exit
   fi
 
-  # Crawling the new version and checking whether an update is required
-  RELEASE=$(curl -fsSL [RELEASE_URL] | [PARSE_RELEASE_COMMAND])
-  if [[ "${RELEASE}" != "$(cat /opt/${APP}_version.txt)" ]] || [[ ! -f /opt/${APP}_version.txt ]]; then
-    # Stopping Services
-    msg_info "Stopping $APP"
-    systemctl stop [SERVICE_NAME]
-    msg_ok "Stopped $APP"
+  # --- Version check using version.py on main vs local ---
+  REMOTE_VERSION="$($STD curl -fsSL "https://raw.githubusercontent.com/Dispatcharr/Dispatcharr/main/version.py" | awk -F"'" '/__version__/ {print $2; exit}')"
 
-    # Creating Backup
-    msg_info "Creating Backup"
-    tar -czf "/opt/${APP}_backup_$(date +%F).tar.gz" [IMPORTANT_PATHS]
-    msg_ok "Backup Created"
-
-    # Execute Update
-    msg_info "Updating $APP to v${RELEASE}"
-    [UPDATE_COMMANDS]
-    msg_ok "Updated $APP to v${RELEASE}"
-
-    # Starting Services
-    msg_info "Starting $APP"
-    systemctl start [SERVICE_NAME]
-    msg_ok "Started $APP"
-
-    # Cleaning up
-    msg_info "Cleaning Up"
-    rm -rf [TEMP_FILES]
-    msg_ok "Cleanup Completed"
-
-    # Last Action
-    echo "${RELEASE}" >/opt/${APP}_version.txt
-    msg_ok "Update Successful"
-  else
-    msg_ok "No update required. ${APP} is already at v${RELEASE}"
+  if [ -z "${REMOTE_VERSION:-}" ]; then
+    warn "Could not determine remote version from version.py on main; skipping versioned update check."
+    exit 0
   fi
-  exit
+
+  LOCAL_VERSION=""
+  if [ -f "$APP_DIR/version.py" ]; then
+    LOCAL_VERSION="$(awk -F"'" '/__version__/ {print $2; exit}' "$APP_DIR/version.py" 2>/dev/null || true)"
+  fi
+
+  if [[ -n "${LOCAL_VERSION:-}" && "${REMOTE_VERSION}" == "${LOCAL_VERSION}" ]]; then
+    msg_ok "No update required. ${APP} is already at v${REMOTE_VERSION}"
+    exit 0
+  fi
+
+  # --- Backup important paths ---
+  msg_info "Creating Backup"
+  tar -czf "/opt/${APP}_backup_$(date +%F).tar.gz" "$APP_DIR" /data /etc/nginx/sites-available/dispatcharr.conf /etc/systemd/system/dispatcharr.service /etc/systemd/system/dispatcharr-celery.service /etc/systemd/system/dispatcharr-celerybeat.service /etc/systemd/system/dispatcharr-daphne.service 2>/dev/null || true
+  msg_ok "Backup Created"
+
+  # --- Stop services (safer for file replacement) ---
+  msg_info "Stopping services"
+  $STD systemctl stop dispatcharr dispatcharr-celery dispatcharr-celerybeat dispatcharr-daphne >/dev/null 2>&1 || true
+  msg_ok "Services stopped"
+
+  # ====== BEGIN update steps ======
+
+  # Fetch latest release into APP_DIR (PVE Helper tools.func)
+  msg_info "Fetching latest Dispatcharr release"
+  APP="$APP" DESTDIR="$APP_DIR" fetch_and_deploy_gh_release "Dispatcharr/Dispatcharr"
+  $STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
+  msg_ok "Release deployed"
+
+  # Ensure required runtime dirs inside $APP_DIR (in case clean unpack removed them)
+  msg_info "Ensuring runtime directories in APP_DIR"
+  mkdir -p "${APP_DIR}/static" "${APP_DIR}/media"
+  $STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "${APP_DIR}/static" "${APP_DIR}/media"
+  msg_ok "Runtime directories ensured"
+
+  # Rebuild frontend (clean)
+  msg_info "Rebuilding frontend"
+  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next 2>/dev/null || true"
+  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --loglevel=error --no-audit --no-fund; else npm install --legacy-peer-deps --loglevel=error --no-audit --no-fund; fi"
+  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
+  msg_ok "Frontend rebuilt"
+
+  # Ensure venv deps are in place (idempotent)
+  msg_info "Refreshing Python environment"
+  if [ ! -f "${APP_DIR}/env/bin/activate" ]; then
+    $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; \"${PYTHON_BIN}\" -m venv env"
+  fi
+  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q --upgrade pip"
+  if [ -f "${APP_DIR}/requirements.txt" ]; then
+    $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q -r requirements.txt"
+  fi
+  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q gunicorn"
+  ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
+  msg_ok "Python environment refreshed"
+
+  # Run Django migrations (one-liner, PVEH-friendly)
+  msg_info "Running Django migrations"
+  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
+  msg_ok "Django migrations complete"
+
+  # Restart services
+  msg_info "Restarting services"
+  $STD systemctl daemon-reload || true
+  $STD systemctl restart dispatcharr dispatcharr-celery dispatcharr-celerybeat dispatcharr-daphne || true
+  $STD systemctl reload nginx 2>/dev/null || true
+  msg_ok "Services restarted"
+
+  # ====== END update steps ======
+  
+  msg_ok "Updated ${APP} to v${REMOTE_VERSION}"
+ 
+  ## Blarm1959 End ##
+
+  exit 0
 }
 
 start
@@ -72,6 +137,18 @@ build_container
 description
 
 msg_ok "Completed Successfully!\n"
-echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
-echo -e "${INFO}${YW} Access it using the following URL:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:9191${CL}"
+
+cat <<EOF
+Nginx is listening on port ${NGINX_HTTP_PORT}.
+Gunicorn socket: ${GUNICORN_SOCKET}.
+WebSockets on port ${WEBSOCKET_PORT} (path /ws/).
+
+You can check logs via:
+  sudo journalctl -u dispatcharr -f
+  sudo journalctl -u dispatcharr-celery -f
+  sudo journalctl -u dispatcharr-celerybeat -f
+  sudo journalctl -u dispatcharr-daphne -f
+
+Visit the app at:
+  http://${server_ip}:${NGINX_HTTP_PORT}
+EOF
