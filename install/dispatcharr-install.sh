@@ -39,7 +39,7 @@ NGINX_SITE="/etc/nginx/sites-available/dispatcharr.conf"
 msg_info "Installing core packages"
 export DEBIAN_FRONTEND=noninteractive
 $STD apt-get update -qq
-$STD apt-get install -y -qq --no-install-recommends curl ca-certificates git python3-venv python3-pip ffmpeg nginx sudo procps redis-server
+$STD apt-get install -y -qq --no-install-recommends curl ca-certificates git python3-venv python3-pip ffmpeg nginx sudo procps redis-server build-essential python3-dev libpq-dev
 msg_ok "Core packages installed"
 
 # Create app user/group and dirs
