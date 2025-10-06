@@ -10,6 +10,19 @@
 > [!CAUTION]
 Exercise vigilance regarding copycat or coat-tailing sites that seek to exploit the project's popularity for potentially malicious purposes.
 
+## 2025-10-06
+
+## 2025-10-05
+
+### 🚀 Updated Scripts
+
+  - #### ✨ New Features
+
+    - ActualBudget: bump to debian 13 [@MickLesk](https://github.com/MickLesk) ([#8124](https://github.com/community-scripts/ProxmoxVE/pull/8124))
+    - 2fauth: bump to debian 13 [@MickLesk](https://github.com/MickLesk) ([#8123](https://github.com/community-scripts/ProxmoxVE/pull/8123))
+    - AdventureLog: bump to debian 13 [@MickLesk](https://github.com/MickLesk) ([#8125](https://github.com/community-scripts/ProxmoxVE/pull/8125))
+    - Update cockpit to Debian 13 [@burgerga](https://github.com/burgerga) ([#8119](https://github.com/community-scripts/ProxmoxVE/pull/8119))
+
 ## 2025-10-04
 
 ### 🚀 Updated Scripts
