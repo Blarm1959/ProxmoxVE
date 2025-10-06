@@ -100,13 +100,14 @@ function update_script() {
   # Ensure venv deps are in place (idempotent)
   msg_info "Refreshing Python environment"
   if [ ! -f "${APP_DIR}/env/bin/activate" ]; then
-    $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; \"${PYTHON_BIN}\" -m venv env"
+    runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; \"${PYTHON_BIN}\" -m venv env || true"
+    runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; python -m ensurepip --upgrade >/dev/null 2>&1 || true"
   fi
-  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q --upgrade pip"
+  runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q --upgrade pip"
   if [ -f "${APP_DIR}/requirements.txt" ]; then
-    $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q -r requirements.txt"
+    runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q -r requirements.txt"
   fi
-  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q gunicorn"
+  runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q gunicorn"
   ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
   msg_ok "Python environment refreshed"
 

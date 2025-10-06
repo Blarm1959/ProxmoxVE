@@ -85,10 +85,11 @@ msg_ok "Dispatcharr deployed to ${APP_DIR}"
 
 # Python venv & backend deps
 msg_info "Setting up Python virtual environment and backend dependencies"
-$STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; \"${PYTHON_BIN}\" -m venv env"
-$STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q --upgrade pip"
-$STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q -r requirements.txt"
-$STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q gunicorn"
+runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; \"${PYTHON_BIN}\" -m venv env || true"
+runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; python -m ensurepip --upgrade >/dev/null 2>&1 || true"
+runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q --upgrade pip"
+runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q -r requirements.txt"
+runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q gunicorn"
 ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
 msg_ok "Python virtual environment ready"
 
