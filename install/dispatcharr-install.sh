@@ -282,7 +282,20 @@ $STD systemctl enable --now dispatcharr dispatcharr-celery dispatcharr-celerybea
 msg_ok "Services are running"
   
 msg_ok "Installed ${APP} : v${LOCAL_VERSION}"
- 
+
+echo "Nginx is listening on port ${NGINX_HTTP_PORT}."
+echo "Gunicorn socket: ${GUNICORN_SOCKET}."
+echo "WebSockets on port ${WEBSOCKET_PORT} (path /ws/)."
+echo
+echo "You can check logs via:"
+echo "  sudo journalctl -u dispatcharr -f"
+echo "  sudo journalctl -u dispatcharr-celery -f"
+echo "  sudo journalctl -u dispatcharr-celerybeat -f"
+echo "  sudo journalctl -u dispatcharr-daphne -f"
+echo
+echo "Visit the app at:"
+echo "  http://$(hostname -I):${NGINX_HTTP_PORT}"
+
 ## Blarm1959 End ##
 
 motd_ssh
@@ -295,18 +308,3 @@ $STD apt-get -y autoclean
 msg_ok "Cleaned"
 
 msg_ok "Completed Successfully!\n"
-
-cat <<EOF
-Nginx is listening on port ${NGINX_HTTP_PORT}.
-Gunicorn socket: ${GUNICORN_SOCKET}.
-WebSockets on port ${WEBSOCKET_PORT} (path /ws/).
-
-You can check logs via:
-  sudo journalctl -u dispatcharr -f
-  sudo journalctl -u dispatcharr-celery -f
-  sudo journalctl -u dispatcharr-celerybeat -f
-  sudo journalctl -u dispatcharr-daphne -f
-
-Visit the app at:
-  http://${server_ip}:${NGINX_HTTP_PORT}
-EOF
