@@ -79,7 +79,7 @@ msg_ok "PostgreSQL database and role provisioned"
 
 # Fetch code via GitHub release helper
 msg_info "Fetching Dispatcharr (latest GitHub release via tools.func)"
-fetch_and_deploy_gh_release "Dispatcharr/Dispatcharr" "latest"
+fetch_and_deploy_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"
 $STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
 msg_ok "Dispatcharr deployed to ${APP_DIR}"
 
