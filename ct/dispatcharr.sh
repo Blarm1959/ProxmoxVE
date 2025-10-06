@@ -81,7 +81,7 @@ function update_script() {
 
   # Fetch latest release into APP_DIR (PVE Helper tools.func)
   msg_info "Fetching latest Dispatcharr release"
-  APP="$APP" DESTDIR="$APP_DIR" fetch_and_deploy_gh_release "Dispatcharr/Dispatcharr"
+  APP="$APP" DESTDIR="$APP_DIR" fetch_and_deploy_gh_release "Dispatcharr/Dispatcharr" "latest" ""
   $STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
   msg_ok "Release deployed"
 
