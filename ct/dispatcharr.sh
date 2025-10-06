@@ -71,11 +71,6 @@ function update_script() {
     exit 0
   fi
 
-  # --- Backup important paths ---
-  msg_info "Creating Backup"
-  tar -czf "${APP_DIR}_backup_$(date +%F).tar.gz" "$APP_DIR" /data /etc/nginx/sites-available/dispatcharr.conf /etc/systemd/system/dispatcharr.service /etc/systemd/system/dispatcharr-celery.service /etc/systemd/system/dispatcharr-celerybeat.service /etc/systemd/system/dispatcharr-daphne.service 2>/dev/null || true
-  msg_ok "Backup Created"
-
   # --- Stop services (safer for file replacement) ---
   msg_info "Stopping services"
   $STD systemctl stop dispatcharr dispatcharr-celery dispatcharr-celerybeat dispatcharr-daphne >/dev/null 2>&1 || true
