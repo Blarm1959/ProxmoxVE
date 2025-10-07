@@ -89,13 +89,27 @@ fi
 msg_ok "Dispatcharr deployed to ${APP_DIR}"
 
 msg_info "Setting up Python virtual environment and backend dependencies (uv)"
-# Ensure uv uses PyPI first, with PyTorch as extra
 export UV_INDEX_URL="https://pypi.org/simple"
 export UV_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 export UV_INDEX_STRATEGY="unsafe-best-match"
-runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; uv venv --seed env || uv venv env"
-runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; uv pip install -r requirements.txt"
-runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; uv pip install -q gunicorn"
+runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; uv venv --seed env || uv venv env'
+
+# Build a filtered requirements without uWSGI
+runuser -u "$DISPATCH_USER" -- bash -lc '
+  cd "'"${APP_DIR}"'"
+  REQ=requirements.txt
+  REQF=requirements.nouwsgi.txt
+  if [ -f "$REQ" ]; then
+    if grep -qiE "^\s*uwsgi(\b|[<>=~])" "$REQ"; then
+      sed -E "/^\s*uwsgi(\b|[<>=~]).*/Id" "$REQ" > "$REQF"
+    else
+      cp "$REQ" "$REQF"
+    fi
+  fi
+'
+
+runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -r requirements.nouwsgi.txt'
+runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install gunicorn'
 ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
 msg_ok "Python virtual environment ready"
 
