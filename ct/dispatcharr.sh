@@ -101,42 +101,41 @@ function update_script() {
   # Ensure required runtime dirs inside $APP_DIR (in case clean unpack removed them)
   msg_info "Ensuring runtime directories in APP_DIR"
   mkdir -p "${APP_DIR}/static" "${APP_DIR}/media"
-  $STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "${APP_DIR}/static" "${APP_DIR}/media"
+  chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "${APP_DIR}/static" "${APP_DIR}/media"
   msg_ok "Runtime directories ensured"
 
   # Rebuild frontend (clean)
   msg_info "Rebuilding frontend"
-  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next || true"
-  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --silent --no-progress --no-audit --no-fund; else npm install --legacy-peer-deps --silent --no-progress --no-audit --no-fund; fi"
-  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; npm run --silent build --loglevel=error -- --logLevel error"
+  sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next || true"
+  sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --silent --no-progress --no-audit --no-fund; else npm install --legacy-peer-deps --silent --no-progress --no-audit --no-fund; fi"
+  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
   msg_ok "Frontend rebuilt"
 
-msg_info "Refreshing Python environment (uv)"
-export UV_INDEX_URL="https://pypi.org/simple"
-export UV_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
-export UV_INDEX_STRATEGY="unsafe-best-match"
-export PATH="/usr/local/bin:$PATH"
-$STD runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; [ -x env/bin/python ] || uv venv --seed env || uv venv env'
+  msg_info "Refreshing Python environment (uv)"
+  export UV_INDEX_URL="https://pypi.org/simple"
+  export UV_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
+  export UV_INDEX_STRATEGY="unsafe-best-match"
+  export PATH="/usr/local/bin:$PATH"
+  $STD runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; [ -x env/bin/python ] || uv venv --seed env || uv venv env'
 
-# Filter out uWSGI and install
-runuser -u "$DISPATCH_USER" -- bash -lc '
-  cd "'"${APP_DIR}"'"
-  REQ=requirements.txt
-  REQF=requirements.nouwsgi.txt
-  if [ -f "$REQ" ]; then
-    if grep -qiE "^\s*uwsgi(\b|[<>=~])" "$REQ"; then
-      sed -E "/^\s*uwsgi(\b|[<>=~]).*/Id" "$REQ" > "$REQF"
-    else
-      cp "$REQ" "$REQF"
+  # Filter out uWSGI and install
+  runuser -u "$DISPATCH_USER" -- bash -lc '
+    cd "'"${APP_DIR}"'"
+    REQ=requirements.txt
+    REQF=requirements.nouwsgi.txt
+    if [ -f "$REQ" ]; then
+      if grep -qiE "^\s*uwsgi(\b|[<>=~])" "$REQ"; then
+        sed -E "/^\s*uwsgi(\b|[<>=~]).*/Id" "$REQ" > "$REQF"
+      else
+        cp "$REQ" "$REQF"
+      fi
     fi
-  fi
-'
+  '
 
-runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q -r requirements.nouwsgi.txt'
-runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q gunicorn'
-ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
-msg_ok "Python environment refreshed"
-
+  runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q -r requirements.nouwsgi.txt'
+  runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q gunicorn'
+  ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
+  msg_ok "Python environment refreshed"
 
   # Run Django migrations (one-liner, PVEH-friendly)
   msg_info "Running Django migrations"

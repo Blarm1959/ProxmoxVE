@@ -61,7 +61,7 @@ if ! id -u "$DISPATCH_USER" >/dev/null 2>&1; then
   $STD useradd -m -g "$DISPATCH_GROUP" -s /bin/bash "$DISPATCH_USER"
 fi
 mkdir -p "$APP_DIR"
-$STD chown "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
+chown "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
 msg_ok "User and directories ready"
 
 msg_info "Installing Node.js (tools.func)"
@@ -115,11 +115,10 @@ runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate
 ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
 msg_ok "Python virtual environment ready"
 
-
 msg_info "Building frontend"
 sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next"
 sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --silent --no-progress --no-audit --no-fund; else npm install --legacy-peer-deps --silent --no-progress --no-audit --no-fund; fi"
-sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; npm run --silent build --loglevel=error -- --logLevel error"
+$STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
 msg_ok "Frontend built"
 
 msg_info "Creating application data directories"
