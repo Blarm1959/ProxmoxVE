@@ -111,6 +111,10 @@ function update_script() {
 
   # Ensure venv deps are in place (idempotent, via uv)
   msg_info "Refreshing Python environment (uv)"
+  # Ensure uv uses PyPI first, with PyTorch as extra
+  export UV_INDEX_URL="https://pypi.org/simple"
+  export UV_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
+  export UV_INDEX_STRATEGY="unsafe-best-match"
   if [ ! -f "${APP_DIR}/env/bin/activate" ]; then
     $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; uv venv --seed env || uv venv env"
   fi
