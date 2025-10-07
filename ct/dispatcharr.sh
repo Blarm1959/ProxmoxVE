@@ -108,7 +108,7 @@ function update_script() {
   msg_info "Rebuilding frontend"
   $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next || true"
   $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --silent --no-progress --no-audit --no-fund; else npm install --legacy-peer-deps --silent --no-progress --no-audit --no-fund; fi"
-  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
+  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; npm run --silent build --loglevel=error -- --logLevel error"
   msg_ok "Frontend rebuilt"
 
 msg_info "Refreshing Python environment (uv)"
