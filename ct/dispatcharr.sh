@@ -85,6 +85,7 @@ function update_script() {
   msg_info "Creating Backup of current installation"
   $STD sudo -u $POSTGRES_USER pg_dump $POSTGRES_DB > "${DB_BACKUP_FILE}"
   $STD tar -czf "${BACKUP_FILE}" "$APP_DIR" /data /etc/nginx/sites-available/dispatcharr.conf /etc/systemd/system/dispatcharr.service /etc/systemd/system/dispatcharr-celery.service /etc/systemd/system/dispatcharr-celerybeat.service /etc/systemd/system/dispatcharr-daphne.service "${DB_BACKUP_FILE}"
+  rm -f "${DB_BACKUP_FILE}"
   msg_ok "Backup Created"
 
   # ====== BEGIN update steps ======
@@ -163,4 +164,4 @@ description
 msg_ok "Completed Successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
 echo -e "${INFO}${YW} Access it using the following URL:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}http://${NGINX_HTTP_PORT}:8409${CL}"
+echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:${NGINX_HTTP_PORT}${CL}"
