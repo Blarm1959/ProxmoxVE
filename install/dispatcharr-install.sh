@@ -31,7 +31,6 @@ NGINX_HTTP_PORT="9191"
 WEBSOCKET_PORT="8001"
 GUNICORN_RUNTIME_DIR="dispatcharr"
 GUNICORN_SOCKET="/run/${GUNICORN_RUNTIME_DIR}/dispatcharr.sock"
-PYTHON_BIN="$(command -v python3)"
 SYSTEMD_DIR="/etc/systemd/system"
 NGINX_SITE="/etc/nginx/sites-available/dispatcharr.conf"
 
@@ -128,14 +127,12 @@ mkdir -p /data/logos \
          /data/uploads/epgs \
          /data/m3us \
          /data/epgs \
-         /data/plugins \
-         /data/db \
-         /app/logo_cache \
-         /app/media
-$STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" /data
-$STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" /app
-$STD chown -R postgres:postgres /data/db || true
+         /data/plugins
+chown -R "$DISPATCH_USER:$DISPATCH_GROUP" /data
 chmod +x /data
+
+mkdir -p "${APP_DIR}/static" "${APP_DIR}/media"
+chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "${APP_DIR}/static" "${APP_DIR}/media"
 msg_ok "Application data directories ready"
 
 msg_info "Running Django migrations and collectstatic"
