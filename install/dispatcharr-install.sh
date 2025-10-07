@@ -96,7 +96,7 @@ export UV_INDEX_STRATEGY="unsafe-best-match"
 $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; uv venv --seed env || uv venv env"
 $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; uv pip install -q -r requirements.txt"
 $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; uv pip install -q gunicorn"
-ln -sf /usr/bin/ffmpeg \"${APP_DIR}/env/bin/ffmpeg\"
+ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
 msg_ok "Python virtual environment ready"
 
 
