@@ -42,7 +42,7 @@ function update_script() {
 
   DTHHMM="$(date +%F_%H:%M).tar.gz"
   BACKUP_FILE="${APP_DIR}_${DTHHMM}.tar.gz"
-  DB_BACKUP_FILE="${APP_DIR}_$POSTGRES_DB-${DTHHMM}.sql"
+  DB_BACKUP_FILE="${APP_DIR}_DB_${DTHHMM}.sql"
 
   SERVER_IP="$(hostname -I | tr -s ' ' | cut -d' ' -f1)"
 
