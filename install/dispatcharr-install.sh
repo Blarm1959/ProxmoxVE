@@ -35,14 +35,18 @@ PYTHON_BIN="$(command -v python3)"
 SYSTEMD_DIR="/etc/systemd/system"
 NGINX_SITE="/etc/nginx/sites-available/dispatcharr.conf"
 
-# System packages minimal (curl, sudo, etc.)
 msg_info "Installing core packages"
 export DEBIAN_FRONTEND=noninteractive
-$STD apt-get update -qq
-$STD apt-get install -y -qq --no-install-recommends curl ca-certificates git python3-venv python3-pip ffmpeg nginx sudo procps redis-server build-essential python3-dev libpq-dev
+$STD apt-get update
+declare -a packages=(
+  git curl wget build-essential libpq-dev
+  python3-dev python3-venv python3-pip nginx redis-server
+  ffmpeg procps streamlink
+  sudo
+)
+$STD apt-get install -y --no-install-recommends "${packages[@]}"
 msg_ok "Core packages installed"
 
-# Create app user/group and dirs
 msg_info "Preparing user and directories"
 if ! getent group "$DISPATCH_GROUP" >/dev/null; then
   $STD groupadd "$DISPATCH_GROUP"
@@ -54,30 +58,23 @@ mkdir -p "$APP_DIR"
 $STD chown "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
 msg_ok "User and directories ready"
 
-# Node.js via PVE Helper (tools.func)
 msg_info "Installing Node.js (tools.func)"
 NODE_VERSION="${NODE_VERSION:-24}" setup_nodejs
 msg_ok "Node.js installed"
 
-# PostgreSQL engine via PVE Helper, then provision DB/user
 msg_info "Installing PostgreSQL (tools.func)"
 PG_VERSION="${PG_VERSION:-16}" setup_postgresql
 $STD systemctl enable --now postgresql >/dev/null 2>&1 || true
 msg_ok "PostgreSQL installed"
 
 msg_info "Provisioning PostgreSQL database and role"
-if ! sudo -H -u postgres bash -lc "psql -tAc \"SELECT 1 FROM pg_database WHERE datname='${POSTGRES_DB}'\" | grep -q 1"; then
-  $STD sudo -H -u postgres bash -lc "createdb '${POSTGRES_DB}'"
-fi
-if ! sudo -H -u postgres bash -lc "psql -tAc \"SELECT 1 FROM pg_roles WHERE rolname='${POSTGRES_USER}'\" | grep -q 1"; then
-  $STD sudo -H -u postgres bash -lc "psql -c \"CREATE USER ${POSTGRES_USER} WITH PASSWORD '${POSTGRES_PASSWORD}';\""
-fi
+$STD sudo -H -u postgres bash -lc "createdb '${POSTGRES_DB}'"
+$STD sudo -H -u postgres bash -lc "psql -c \"CREATE USER ${POSTGRES_USER} WITH PASSWORD '${POSTGRES_PASSWORD}';\""
 $STD sudo -H -u postgres bash -lc "psql -c \"GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_DB} TO ${POSTGRES_USER};\""
 $STD sudo -H -u postgres bash -lc "psql -c \"ALTER DATABASE ${POSTGRES_DB} OWNER TO ${POSTGRES_USER};\""
 $STD sudo -H -u postgres bash -lc "psql -d \"${POSTGRES_DB}\" -c \"ALTER SCHEMA public OWNER TO ${POSTGRES_USER};\""
 msg_ok "PostgreSQL database and role provisioned"
 
-# Fetch code via GitHub release helper
 msg_info "Fetching Dispatcharr (latest GitHub release via tools.func)"
 fetch_and_deploy_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"
 $STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
@@ -87,7 +84,6 @@ if [ -f "$APP_DIR/version.py" ]; then
 fi
 msg_ok "Dispatcharr deployed to ${APP_DIR}"
 
-# Python venv & backend deps
 msg_info "Setting up Python virtual environment and backend dependencies"
 runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; \"${PYTHON_BIN}\" -m venv env || true"
 runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; python -m ensurepip --upgrade >/dev/null 2>&1 || true"
@@ -97,14 +93,12 @@ runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activ
 ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
 msg_ok "Python virtual environment ready"
 
-# Frontend build
 msg_info "Building frontend"
 $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next 2>/dev/null || true"
 $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --loglevel=error --no-audit --no-fund; else npm install --legacy-peer-deps --loglevel=error --no-audit --no-fund; fi"
 $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
 msg_ok "Frontend built"
 
-# App data dirs
 msg_info "Creating application data directories"
 mkdir -p /data/logos \
          /data/recordings \
@@ -122,13 +116,11 @@ $STD chown -R postgres:postgres /data/db || true
 chmod +x /data
 msg_ok "Application data directories ready"
 
-# Django migrate/static
 msg_info "Running Django migrations and collectstatic"
 $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
 $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; python manage.py collectstatic --noinput"
 msg_ok "Django tasks complete"
 
-# Systemd services
 msg_info "Writing systemd services and Nginx config"
 cat <<EOF >${SYSTEMD_DIR}/dispatcharr.service
 [Unit]
@@ -274,7 +266,6 @@ $STD systemctl restart nginx
 $STD systemctl enable nginx >/dev/null 2>&1 || true
 msg_ok "Systemd and Nginx configuration written"
 
-# Enable/start services
 msg_info "Enabling and starting Dispatcharr services"
 $STD systemctl daemon-reexec
 $STD systemctl daemon-reload
@@ -282,6 +273,12 @@ $STD systemctl enable --now dispatcharr dispatcharr-celery dispatcharr-celerybea
 msg_ok "Services are running"
   
 msg_ok "Installed ${APP} : v${LOCAL_VERSION}"
+
+echo "Postgres:"
+echo "    Database Name: $DB_NAME"
+echo "    Database User: $DB_USER"
+echo "    Database Password: $DB_PASS"
+echo
 
 echo "Nginx is listening on port ${NGINX_HTTP_PORT}."
 echo "Gunicorn socket: ${GUNICORN_SOCKET}."
@@ -306,5 +303,3 @@ msg_info "Cleaning up"
 $STD apt-get -y autoremove
 $STD apt-get -y autoclean
 msg_ok "Cleaned"
-
-msg_ok "Completed Successfully!\n"

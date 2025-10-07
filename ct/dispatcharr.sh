@@ -48,7 +48,7 @@ function update_script() {
     exit
   fi
 
-  if check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
+  if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
     msg_error "No ${APP} GitHub Found!"
     exit
   fi
@@ -71,10 +71,21 @@ function update_script() {
     exit 0
   fi
 
-  # --- Stop services (safer for file replacement) ---
-  msg_info "Stopping services"
-  $STD systemctl stop dispatcharr dispatcharr-celery dispatcharr-celerybeat dispatcharr-daphne >/dev/null 2>&1 || true
-  msg_ok "Services stopped"
+  msg_info "Stopping services for $APP"
+  systemctl stop dispatcharr-celery
+  systemctl stop dispatcharr-celerybeat
+  systemctl stop dispatcharr-daphne
+  systemctl stop dispatcharr
+  msg_ok "Services stopped for $APP"
+
+  # --- Backup important paths ---
+  msg_info "Creating Backup of current installation"
+  DTHHMM="$(date +%F_%HH:%M).tar.gz"
+  BACKUP_FILE="${APP_DIR}_${DTHHMM}.tar.gz"
+  DB_BACKUP_FILE="${APP_DIR}_$POSTGRES_DB-${DTHHMM}.sql"
+  $STD sudo -u $POSTGRES_USER pg_dump $POSTGRES_DB > "${DB_BACKUP_FILE}"
+  $STD tar -czf "${BACKUP_FILE}" "$APP_DIR" /data /etc/nginx/sites-available/dispatcharr.conf /etc/systemd/system/dispatcharr.service /etc/systemd/system/dispatcharr-celery.service /etc/systemd/system/dispatcharr-celerybeat.service /etc/systemd/system/dispatcharr-daphne.service "${DB_BACKUP_FILE}"
+  msg_ok "Backup Created"
 
   # ====== BEGIN update steps ======
 
