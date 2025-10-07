@@ -27,8 +27,6 @@ function update_script() {
   ## Blarm1959 Start ##
 
   # Variables
-  FORCE_UPDATE="${FORCE_UPDATE:-0}"
-
   DISPATCH_USER="dispatcharr"
   DISPATCH_GROUP="dispatcharr"
   APP_DIR="/opt/dispatcharr"
@@ -41,9 +39,8 @@ function update_script() {
   WEBSOCKET_PORT="8001"
   GUNICORN_RUNTIME_DIR="dispatcharr"
   GUNICORN_SOCKET="/run/${GUNICORN_RUNTIME_DIR}/dispatcharr.sock"
-  PYTHON_BIN="$(command -v python3)"
 
-  DTHHMM="$(date +%F_%HH:%M).tar.gz"
+  DTHHMM="$(date +%F_%H:%M).tar.gz"
   BACKUP_FILE="${APP_DIR}_${DTHHMM}.tar.gz"
   DB_BACKUP_FILE="${APP_DIR}_$POSTGRES_DB-${DTHHMM}.sql"
 
@@ -55,11 +52,9 @@ function update_script() {
     exit
   fi
 
-  if [[ "$FORCE_UPDATE" != "1" ]]; then
-    if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
-      exit
-    fi
-  fi  
+  if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
+    exit
+  fi
 
   # --- Version check using version.py on main vs local ---
   REMOTE_VERSION="$($STD curl -fsSL "https://raw.githubusercontent.com/Dispatcharr/Dispatcharr/main/version.py" | awk -F"'" '/__version__/ {print $2; exit}')"
@@ -74,11 +69,9 @@ function update_script() {
     LOCAL_VERSION="$(awk -F"'" '/__version__/ {print $2; exit}' "$APP_DIR/version.py" 2>/dev/null || true)"
   fi
 
-  if [[ "$FORCE_UPDATE" != "1" ]]; then
-     if [[ -n "${LOCAL_VERSION:-}" && "${REMOTE_VERSION}" == "${LOCAL_VERSION}" ]]; then
-      msg_ok "No update required. ${APP} is already at v${REMOTE_VERSION}"
-      exit 0
-    fi
+  if [[ -n "${LOCAL_VERSION:-}" && "${REMOTE_VERSION}" == "${LOCAL_VERSION}" ]]; then
+    msg_ok "No update required. ${APP} is already at v${REMOTE_VERSION}"
+    exit 0
   fi
 
   msg_info "Stopping services for $APP"
