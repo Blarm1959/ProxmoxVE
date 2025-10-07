@@ -11,7 +11,7 @@ var_cpu="${var_cpu:-2}"
 var_ram="${var_ram:-2048}"
 var_disk="${var_disk:-8}"
 var_os="${var_os:-debian}"
-var_version="${var_version:-12}"
+var_version="${var_version:-13}"
 var_unprivileged="${var_unprivileged:-1}"
 
 header_info "$APP"
@@ -109,17 +109,13 @@ function update_script() {
   $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
   msg_ok "Frontend rebuilt"
 
-  # Ensure venv deps are in place (idempotent)
-  msg_info "Refreshing Python environment"
+  # Ensure venv deps are in place (idempotent, via uv)
+  msg_info "Refreshing Python environment (uv)"
   if [ ! -f "${APP_DIR}/env/bin/activate" ]; then
-    $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; \"${PYTHON_BIN}\" -m venv env || true"
-    $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; python -m ensurepip --upgrade || true"
+    $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; uv venv --seed env || uv venv env"
   fi
-  $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q --upgrade pip"
-  if [ -f "${APP_DIR}/requirements.txt" ]; then
-    $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q -r requirements.txt"
-  fi
-  $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q gunicorn"
+  $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; uv pip install -q -r requirements.txt"
+  $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; uv pip install -q gunicorn"
   ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
   msg_ok "Python environment refreshed"
 

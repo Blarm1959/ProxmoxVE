@@ -39,13 +39,18 @@ msg_info "Installing core packages"
 export DEBIAN_FRONTEND=noninteractive
 $STD apt-get update
 declare -a packages=(
-  git curl wget build-essential libpq-dev
+  git curl wget build-essential libpq-dev libffi-dev
   python3-dev python3-venv python3-pip nginx redis-server
   ffmpeg procps streamlink
   sudo
 )
 $STD apt-get install -y --no-install-recommends "${packages[@]}"
 msg_ok "Core packages installed"
+
+msg_info "Installing uv (Python package manager)"
+# Use latest Python via uv on Debian 13
+PYTHON_VERSION="3.13" setup_uv
+msg_ok "uv installed"
 
 msg_info "Preparing user and directories"
 if ! getent group "$DISPATCH_GROUP" >/dev/null; then
@@ -84,14 +89,13 @@ if [ -f "$APP_DIR/version.py" ]; then
 fi
 msg_ok "Dispatcharr deployed to ${APP_DIR}"
 
-msg_info "Setting up Python virtual environment and backend dependencies"
-$STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; \"${PYTHON_BIN}\" -m venv env || true"
-$STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; python -m ensurepip --upgrade"
-$STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q --upgrade pip"
-$STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q -r requirements.txt"
-$STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q gunicorn"
-ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
+msg_info "Setting up Python virtual environment and backend dependencies (uv)"
+$STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; uv venv --seed env || uv venv env"
+$STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; uv pip install -q -r requirements.txt"
+$STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; uv pip install -q gunicorn"
+ln -sf /usr/bin/ffmpeg \"${APP_DIR}/env/bin/ffmpeg\"
 msg_ok "Python virtual environment ready"
+
 
 msg_info "Building frontend"
 $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next"
