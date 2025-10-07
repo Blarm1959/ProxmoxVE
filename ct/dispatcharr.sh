@@ -104,7 +104,7 @@ function update_script() {
 
   # Rebuild frontend (clean)
   msg_info "Rebuilding frontend"
-  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next 2>/dev/null || true"
+  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next || true"
   $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --loglevel=error --no-audit --no-fund; else npm install --legacy-peer-deps --loglevel=error --no-audit --no-fund; fi"
   $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
   msg_ok "Frontend rebuilt"
@@ -112,14 +112,14 @@ function update_script() {
   # Ensure venv deps are in place (idempotent)
   msg_info "Refreshing Python environment"
   if [ ! -f "${APP_DIR}/env/bin/activate" ]; then
-    runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; \"${PYTHON_BIN}\" -m venv env || true"
-    runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; python -m ensurepip --upgrade >/dev/null 2>&1 || true"
+    $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; \"${PYTHON_BIN}\" -m venv env || true"
+    $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; python -m ensurepip --upgrade || true"
   fi
-  runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q --upgrade pip"
+  $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q --upgrade pip"
   if [ -f "${APP_DIR}/requirements.txt" ]; then
-    runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q -r requirements.txt"
+    $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q -r requirements.txt"
   fi
-  runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q gunicorn"
+  $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; pip install -q gunicorn"
   ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
   msg_ok "Python environment refreshed"
 
@@ -164,4 +164,4 @@ description
 msg_ok "Completed Successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
 echo -e "${INFO}${YW} Access it using the following URL:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:${NGINX_HTTP_PORT}${CL}"
+echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:9191${CL}"
