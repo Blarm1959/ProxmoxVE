@@ -275,9 +275,9 @@ msg_ok "Services are running"
 msg_ok "Installed ${APP} : v${LOCAL_VERSION}"
 
 echo "Postgres:"
-echo "    Database Name: $DB_NAME"
-echo "    Database User: $DB_USER"
-echo "    Database Password: $DB_PASS"
+echo "    Database Name: $POSTGRES_DB"
+echo "    Database User: $POSTGRES_USER"
+echo "    Database Password: $POSTGRES_PASSWORD"
 echo
 
 echo "Nginx is listening on port ${NGINX_HTTP_PORT}."
