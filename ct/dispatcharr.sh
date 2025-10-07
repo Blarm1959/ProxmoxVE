@@ -27,6 +27,8 @@ function update_script() {
   ## Blarm1959 Start ##
 
   # Variables
+  FORCE_UPDATE="${FORCE_UPDATE:-0}"
+
   DISPATCH_USER="dispatcharr"
   DISPATCH_GROUP="dispatcharr"
   APP_DIR="/opt/dispatcharr"
@@ -53,10 +55,11 @@ function update_script() {
     exit
   fi
 
-  if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
-    msg_error "No ${APP} GitHub Found!"
-    exit
-  fi
+  if [[ "$FORCE_UPDATE" != "1" ]]; then
+    if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
+      exit
+    fi
+  fi  
 
   # --- Version check using version.py on main vs local ---
   REMOTE_VERSION="$($STD curl -fsSL "https://raw.githubusercontent.com/Dispatcharr/Dispatcharr/main/version.py" | awk -F"'" '/__version__/ {print $2; exit}')"
@@ -71,9 +74,11 @@ function update_script() {
     LOCAL_VERSION="$(awk -F"'" '/__version__/ {print $2; exit}' "$APP_DIR/version.py" 2>/dev/null || true)"
   fi
 
-  if [[ -n "${LOCAL_VERSION:-}" && "${REMOTE_VERSION}" == "${LOCAL_VERSION}" ]]; then
-    msg_ok "No update required. ${APP} is already at v${REMOTE_VERSION}"
-    exit 0
+  if [[ "$FORCE_UPDATE" != "1" ]]; then
+     if [[ -n "${LOCAL_VERSION:-}" && "${REMOTE_VERSION}" == "${LOCAL_VERSION}" ]]; then
+      msg_ok "No update required. ${APP} is already at v${REMOTE_VERSION}"
+      exit 0
+    fi
   fi
 
   msg_info "Stopping services for $APP"
