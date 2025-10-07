@@ -45,6 +45,8 @@ function update_script() {
   BACKUP_FILE="${APP_DIR}_${DTHHMM}.tar.gz"
   DB_BACKUP_FILE="${APP_DIR}_$POSTGRES_DB-${DTHHMM}.sql"
 
+  SERVER_IP="$(hostname -I | tr -s ' ' | cut -d' ' -f1)"
+
   # Check if installation is present
   if [[ ! -d "$APP_DIR" ]]; then
     msg_error "No ${APP} Installation Found!"
@@ -105,7 +107,7 @@ function update_script() {
   # Rebuild frontend (clean)
   msg_info "Rebuilding frontend"
   $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next || true"
-  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --loglevel=error --no-audit --no-fund; else npm install --legacy-peer-deps --loglevel=error --no-audit --no-fund; fi"
+  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --silent --no-progress --no-audit --no-fund; else npm install --legacy-peer-deps --silent --no-progress --no-audit --no-fund; fi"
   $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
   msg_ok "Frontend rebuilt"
 
@@ -114,7 +116,7 @@ export UV_INDEX_URL="https://pypi.org/simple"
 export UV_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 export UV_INDEX_STRATEGY="unsafe-best-match"
 export PATH="/usr/local/bin:$PATH"
-runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; [ -x env/bin/python ] || uv venv --seed env || uv venv env'
+$STD runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; [ -x env/bin/python ] || uv venv --seed env || uv venv env'
 
 # Filter out uWSGI and install
 runuser -u "$DISPATCH_USER" -- bash -lc '
@@ -131,7 +133,7 @@ runuser -u "$DISPATCH_USER" -- bash -lc '
 '
 
 runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q -r requirements.nouwsgi.txt'
-runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install gunicorn'
+runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q gunicorn'
 ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
 msg_ok "Python environment refreshed"
 
@@ -163,7 +165,7 @@ msg_ok "Python environment refreshed"
   echo "  sudo journalctl -u dispatcharr-daphne -f"
   echo
   echo "Visit the app at:"
-  echo "  http://$(hostname -I):${NGINX_HTTP_PORT}"
+  echo "  http://${SERVER_IP}:${NGINX_HTTP_PORT}"
 
   ## Blarm1959 End ##
 

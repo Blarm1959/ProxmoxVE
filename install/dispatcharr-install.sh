@@ -35,6 +35,8 @@ PYTHON_BIN="$(command -v python3)"
 SYSTEMD_DIR="/etc/systemd/system"
 NGINX_SITE="/etc/nginx/sites-available/dispatcharr.conf"
 
+SERVER_IP="$(hostname -I | tr -s ' ' | cut -d' ' -f1)"
+
 msg_info "Installing core packages"
 export DEBIAN_FRONTEND=noninteractive
 $STD apt-get update
@@ -92,7 +94,7 @@ msg_info "Setting up Python virtual environment and backend dependencies (uv)"
 export UV_INDEX_URL="https://pypi.org/simple"
 export UV_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 export UV_INDEX_STRATEGY="unsafe-best-match"
-runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; uv venv --seed env || uv venv env'
+$STD runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; uv venv --seed env || uv venv env'
 
 # Build a filtered requirements without uWSGI
 runuser -u "$DISPATCH_USER" -- bash -lc '
@@ -109,14 +111,14 @@ runuser -u "$DISPATCH_USER" -- bash -lc '
 '
 
 runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q -r requirements.nouwsgi.txt'
-runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install gunicorn'
+runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q gunicorn'
 ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
 msg_ok "Python virtual environment ready"
 
 
 msg_info "Building frontend"
 sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next"
-sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --loglevel=error --no-audit --no-fund; else npm install --legacy-peer-deps --loglevel=error --no-audit --no-fund; fi"
+sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --silent --no-progress --no-audit --no-fund; else npm install --legacy-peer-deps --silent --no-progress --no-audit --no-fund; fi"
 sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
 msg_ok "Frontend built"
 
@@ -312,7 +314,7 @@ echo "  sudo journalctl -u dispatcharr-celerybeat -f"
 echo "  sudo journalctl -u dispatcharr-daphne -f"
 echo
 echo "Visit the app at:"
-echo "  http://$(hostname -I):${NGINX_HTTP_PORT}"
+echo "  http://${SERVER_IP}:${NGINX_HTTP_PORT}"
 
 ## Blarm1959 End ##
 
