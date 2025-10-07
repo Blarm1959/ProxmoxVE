@@ -39,10 +39,9 @@ msg_info "Installing core packages"
 export DEBIAN_FRONTEND=noninteractive
 $STD apt-get update
 declare -a packages=(
-  git curl wget build-essential libpq-dev libffi-dev
-  python3-dev python3-venv python3-pip nginx redis-server
-  ffmpeg procps streamlink
-  sudo
+  git curl wget sudo
+  build-essential libpq-dev libffi-dev pkg-config
+  nginx redis-server ffmpeg procps streamlink
 )
 $STD apt-get install -y --no-install-recommends "${packages[@]}"
 msg_ok "Core packages installed"
