@@ -116,10 +116,10 @@ function update_script() {
   export UV_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
   export UV_INDEX_STRATEGY="unsafe-best-match"
   if [ ! -f "${APP_DIR}/env/bin/activate" ]; then
-    $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; uv venv --seed env || uv venv env"
+    runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; uv venv --seed env || uv venv env"
   fi
-  $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; uv pip install -q -r requirements.txt"
-  $STD runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; uv pip install -q gunicorn"
+  runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; uv pip install -q -r requirements.txt"
+  runuser -u "$DISPATCH_USER" -- bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; uv pip install -q gunicorn"
   ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
   msg_ok "Python environment refreshed"
 
