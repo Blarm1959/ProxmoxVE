@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 # force_version.sh
-# Spoofs Dispatcharr version markers to force an update or test a specific version.
+# Forces the PVEH updater to run by spoofing the version stored in ~/.dispatcharr.
 # Usage: sudo force_version.sh [--version <ver> | -V <ver>]
 # If no version is provided, defaults to 0.0.0
 
 set -euo pipefail
 
-APP_DIR="/opt/dispatcharr"
-DISPATCH_USER="dispatcharr"
-MARKER="/root/.dispatcharr"
+MARKER="${HOME}/.dispatcharr"
 
 usage() {
   echo "Usage: $0 [--version <ver> | -V <ver>]"
@@ -19,10 +17,10 @@ usage() {
   exit 2
 }
 
-# Default version if none given
+# Default version if none provided
 VERSION="0.0.0"
 
-# Parse args (optional)
+# Parse args
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --version|-V)
@@ -41,14 +39,8 @@ done
 # Strip any leading 'v'
 VERSION="${VERSION#v}"
 
-# Spoof version.py (for internal checks)
-printf "__version__ = '%s'\n" "$VERSION" > "${APP_DIR}/version.py"
-chown "${DISPATCH_USER}:${DISPATCH_USER}" "${APP_DIR}/version.py"
+# Spoof the PVEH GitHub-release marker only
+printf "%s\n" "$VERSION" > "$MARKER"
 
-# Spoof PVEH marker (for check_for_gh_release)
-printf "%s\n" "$VERSION" > "${MARKER}"
-
-echo "Forced Dispatcharr version markers to ${VERSION}"
-echo "version.py  -> ${APP_DIR}/version.py"
-echo "PVEH marker -> ${MARKER}"
+echo "Forced ~/.dispatcharr version marker to ${VERSION}"
 echo "Run 'update' now to trigger a full rebuild from GitHub."
