@@ -46,30 +46,17 @@ function update_script() {
 
   SERVER_IP="$(hostname -I | tr -s ' ' | cut -d' ' -f1)"
 
+  APP_LC=$(echo "${APP,,}" | tr -d ' ')
+  VERSION_FILE"$HOME/.${APP_LC}"
+
   # Check if installation is present
   if [[ ! -d "$APP_DIR" ]]; then
     msg_error "No ${APP} Installation Found!"
     exit
   fi
 
-  $STD bash -c '! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr" || exit 1'
-
-  # --- Version check using version.py on main vs local ---
-  REMOTE_VERSION="$($STD curl -fsSL "https://raw.githubusercontent.com/Dispatcharr/Dispatcharr/main/version.py" | awk -F"'" '/__version__/ {print $2; exit}')"
-
-  if [ -z "${REMOTE_VERSION:-}" ]; then
-    msg_warn "Could not determine remote version from version.py on main; skipping versioned update check."
-    exit 0
-  fi
-
-  LOCAL_VERSION=""
-  if [ -f "$APP_DIR/version.py" ]; then
-    LOCAL_VERSION="$(awk -F"'" '/__version__/ {print $2; exit}' "$APP_DIR/version.py" 2>/dev/null || true)"
-  fi
-
-  if [[ -n "${LOCAL_VERSION:-}" && "${REMOTE_VERSION}" == "${LOCAL_VERSION}" ]]; then
-    msg_ok "No update required. ${APP} is already at v${REMOTE_VERSION}"
-    exit 0
+  if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
+    exit
   fi
 
   msg_info "Stopping services for $APP"
@@ -83,7 +70,7 @@ function update_script() {
   msg_info "Creating Backup of current installation"
   $STD sudo -u postgres pg_dump $POSTGRES_DB > "${DB_BACKUP_FILE}"
   $STD tar -czf "${BACKUP_FILE}" -C / "${APP_DIR#/}" data etc/nginx/sites-available/dispatcharr.conf etc/systemd/system/dispatcharr.service etc/systemd/system/dispatcharr-celery.service etc/systemd/system/dispatcharr-celerybeat.service etc/systemd/system/dispatcharr-daphne.service "${DB_BACKUP_FILE#/}"
-rm -f "${DB_BACKUP_FILE}"
+  rm -f "${DB_BACKUP_FILE}"
   msg_ok "Backup Created"
 
   # ====== BEGIN update steps ======
@@ -92,6 +79,8 @@ rm -f "${DB_BACKUP_FILE}"
   msg_info "Fetching latest Dispatcharr release"
   fetch_and_deploy_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"
   $STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
+  CURRENT_VERSION=""
+  [[ -f "$VERSION_FILE" ]] && CURRENT_VERSION=$(<"$VERSION_FILE")
   msg_ok "Release deployed"
 
   # Ensure required runtime dirs inside $APP_DIR (in case clean unpack removed them)
@@ -147,7 +136,7 @@ rm -f "${DB_BACKUP_FILE}"
 
   # ====== END update steps ======
   
-  msg_ok "Updated ${APP} to v${REMOTE_VERSION}"
+  msg_ok "Updated ${APP} to v${CURRENT_VERSION}"
  
   echo "Nginx is listening on port ${NGINX_HTTP_PORT}."
   echo "Gunicorn socket: ${GUNICORN_SOCKET}."

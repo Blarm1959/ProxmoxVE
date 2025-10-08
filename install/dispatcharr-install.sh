@@ -36,6 +36,9 @@ NGINX_SITE="/etc/nginx/sites-available/dispatcharr.conf"
 
 SERVER_IP="$(hostname -I | tr -s ' ' | cut -d' ' -f1)"
 
+APP_LC=$(echo "${APP,,}" | tr -d ' ')
+VERSION_FILE"$HOME/.${APP_LC}"
+
 msg_info "Installing core packages"
 export DEBIAN_FRONTEND=noninteractive
 $STD apt-get update
@@ -83,10 +86,8 @@ msg_ok "PostgreSQL database and role provisioned"
 msg_info "Fetching Dispatcharr (latest GitHub release via tools.func)"
 fetch_and_deploy_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"
 $STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
-LOCAL_VERSION=""
-if [ -f "$APP_DIR/version.py" ]; then
-  LOCAL_VERSION="$(awk -F"'" '/__version__/ {print $2; exit}' "$APP_DIR/version.py" 2>/dev/null || true)"
-fi
+CURRENT_VERSION=""
+[[ -f "$VERSION_FILE" ]] && CURRENT_VERSION=$(<"$VERSION_FILE")
 msg_ok "Dispatcharr deployed to ${APP_DIR}"
 
 msg_info "Setting up Python virtual environment and backend dependencies (uv)"
@@ -291,7 +292,7 @@ $STD systemctl daemon-reload
 $STD systemctl enable --now dispatcharr dispatcharr-celery dispatcharr-celerybeat dispatcharr-daphne >/dev/null 2>&1 || true
 msg_ok "Services are running"
   
-msg_ok "Installed ${APP} : v${LOCAL_VERSION}"
+msg_ok "Installed ${APP} : v${CURRENT_VERSION}"
 
 echo "Postgres:"
 echo "    Database Name: $POSTGRES_DB"
