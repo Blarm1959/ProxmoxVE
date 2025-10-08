@@ -84,8 +84,8 @@ function update_script() {
   # --- Backup important paths ---
   msg_info "Creating Backup of current installation"
   $STD sudo -u postgres pg_dump $POSTGRES_DB > "${DB_BACKUP_FILE}"
-  $STD tar --warning=no-absolute-paths -czf "${BACKUP_FILE}" -C "$APP_DIR" /data /etc/nginx/sites-available/dispatcharr.conf /etc/systemd/system/dispatcharr.service /etc/systemd/system/dispatcharr-celery.service /etc/systemd/system/dispatcharr-celerybeat.service /etc/systemd/system/dispatcharr-daphne.service "${DB_BACKUP_FILE}"
-  rm -f "${DB_BACKUP_FILE}"
+  $STD tar -czf "${BACKUP_FILE}" -C / "${APP_DIR#/}" data etc/nginx/sites-available/dispatcharr.conf etc/systemd/system/dispatcharr.service etc/systemd/system/dispatcharr-celery.service etc/systemd/system/dispatcharr-celerybeat.service etc/systemd/system/dispatcharr-daphne.service "${DB_BACKUP_FILE#/}"
+rm -f "${DB_BACKUP_FILE}"
   msg_ok "Backup Created"
 
   # ====== BEGIN update steps ======
