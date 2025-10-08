@@ -15,8 +15,6 @@ update_os
 
 # Setup App
 
-## Blarm1959 Start ##
-
 # Variables
 APP="Dispatcharr"
 DISPATCH_USER="dispatcharr"
@@ -312,8 +310,6 @@ echo "  sudo journalctl -u dispatcharr-daphne -f"
 echo
 echo "Visit the app at:"
 echo "  http://${SERVER_IP}:${NGINX_HTTP_PORT}"
-
-## Blarm1959 End ##
 
 motd_ssh
 customize

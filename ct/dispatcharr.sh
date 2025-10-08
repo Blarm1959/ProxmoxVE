@@ -24,8 +24,6 @@ function update_script() {
   check_container_storage
   check_container_resources
 
-  ## Blarm1959 Start ##
-
   # Variables
   DISPATCH_USER="dispatcharr"
   DISPATCH_GROUP="dispatcharr"
@@ -150,8 +148,6 @@ function update_script() {
   echo
   echo "Visit the app at:"
   echo "  http://${SERVER_IP}:${NGINX_HTTP_PORT}"
-
-  ## Blarm1959 End ##
 
   exit 0
 }
