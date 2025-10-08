@@ -84,7 +84,7 @@ function update_script() {
   # --- Backup important paths ---
   msg_info "Creating Backup of current installation"
   $STD sudo -u postgres pg_dump $POSTGRES_DB > "${DB_BACKUP_FILE}"
-  $STD tar -czf "${BACKUP_FILE}" "$APP_DIR" /data /etc/nginx/sites-available/dispatcharr.conf /etc/systemd/system/dispatcharr.service /etc/systemd/system/dispatcharr-celery.service /etc/systemd/system/dispatcharr-celerybeat.service /etc/systemd/system/dispatcharr-daphne.service "${DB_BACKUP_FILE}"
+  $STD tar -czf "${BACKUP_FILE}" -C "$APP_DIR" /data /etc/nginx/sites-available/dispatcharr.conf /etc/systemd/system/dispatcharr.service /etc/systemd/system/dispatcharr-celery.service /etc/systemd/system/dispatcharr-celerybeat.service /etc/systemd/system/dispatcharr-daphne.service "${DB_BACKUP_FILE}"
   rm -f "${DB_BACKUP_FILE}"
   msg_ok "Backup Created"
 
@@ -104,9 +104,9 @@ function update_script() {
 
   # Rebuild frontend (clean)
   msg_info "Rebuilding frontend"
-  sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next || true"
-  sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --silent --no-progress --no-audit --no-fund; else npm install --legacy-peer-deps --silent --no-progress --no-audit --no-fund; fi"
-  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
+  sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next || true"
+  sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --silent --no-progress --no-audit --no-fund; else npm install --legacy-peer-deps --silent --no-progress --no-audit --no-fund; fi"
+  $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
   msg_ok "Frontend rebuilt"
 
   msg_info "Refreshing Python environment (uv)"
@@ -114,10 +114,10 @@ function update_script() {
   export UV_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
   export UV_INDEX_STRATEGY="unsafe-best-match"
   export PATH="/usr/local/bin:$PATH"
-  $STD runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; [ -x env/bin/python ] || uv venv --seed env || uv venv env'
+  $STD runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; [ -x env/bin/python ] || uv venv --seed env || uv venv env'
 
   # Filter out uWSGI and install
-  runuser -u "$DISPATCH_USER" -- bash -lc '
+  runuser -u "$DISPATCH_USER" -- bash -c '
     cd "'"${APP_DIR}"'"
     REQ=requirements.txt
     REQF=requirements.nouwsgi.txt
@@ -130,14 +130,14 @@ function update_script() {
     fi
   '
 
-  runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q -r requirements.nouwsgi.txt'
-  runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q gunicorn'
+  runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q -r requirements.nouwsgi.txt'
+  runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q gunicorn'
   ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
   msg_ok "Python environment refreshed"
 
   # Run Django migrations (one-liner, PVEH-friendly)
   msg_info "Running Django migrations"
-  $STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
+  $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
   msg_ok "Django migrations complete"
 
   # Restart services

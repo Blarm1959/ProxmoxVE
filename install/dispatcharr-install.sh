@@ -93,10 +93,10 @@ msg_info "Setting up Python virtual environment and backend dependencies (uv)"
 export UV_INDEX_URL="https://pypi.org/simple"
 export UV_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 export UV_INDEX_STRATEGY="unsafe-best-match"
-$STD runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; uv venv --seed env || uv venv env'
+$STD runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; uv venv --seed env || uv venv env'
 
 # Build a filtered requirements without uWSGI
-runuser -u "$DISPATCH_USER" -- bash -lc '
+runuser -u "$DISPATCH_USER" -- bash -c '
   cd "'"${APP_DIR}"'"
   REQ=requirements.txt
   REQF=requirements.nouwsgi.txt
@@ -109,15 +109,15 @@ runuser -u "$DISPATCH_USER" -- bash -lc '
   fi
 '
 
-runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q -r requirements.nouwsgi.txt'
-runuser -u "$DISPATCH_USER" -- bash -lc 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q gunicorn'
+runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q -r requirements.nouwsgi.txt'
+runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q gunicorn'
 ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
 msg_ok "Python virtual environment ready"
 
 msg_info "Building frontend"
-sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next"
-sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --silent --no-progress --no-audit --no-fund; else npm install --legacy-peer-deps --silent --no-progress --no-audit --no-fund; fi"
-$STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
+sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next"
+sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --silent --no-progress --no-audit --no-fund; else npm install --legacy-peer-deps --silent --no-progress --no-audit --no-fund; fi"
+$STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
 msg_ok "Frontend built"
 
 msg_info "Creating application data directories"
@@ -136,8 +136,8 @@ chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "${APP_DIR}/static" "${APP_DIR}/media"
 msg_ok "Application data directories ready"
 
 msg_info "Running Django migrations and collectstatic"
-$STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
-$STD sudo -u "$DISPATCH_USER" bash -lc "cd \"${APP_DIR}\"; source env/bin/activate; python manage.py collectstatic --noinput"
+$STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
+$STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}\"; source env/bin/activate; python manage.py collectstatic --noinput"
 msg_ok "Django tasks complete"
 
 msg_info "Writing systemd services and Nginx config"
