@@ -57,6 +57,26 @@ function update_script() {
     exit
   fi
 
+  # Prevent accumulating large backup archives
+  OLD_BACKUPS=("${APP_DIR}"_*.tar.gz)
+  OLD_DUMPS=("${APP_DIR}_DB_"*.sql)
+
+  # Check for any previous backup tarballs
+  if compgen -G "${APP_DIR}_*.tar.gz" > /dev/null; then
+    msg_warn "Existing backup archive(s) detected in ${APP_DIR}:"
+    ls -lh "${APP_DIR}"_*.tar.gz 2>/dev/null | sed 's/^/  - /'
+    msg_warn "Each update creates a large .tar.gz backup file."
+    msg_warn "Please move or remove old backup(s) before running update again."
+    exit
+  fi
+
+  # Remove any leftover temporary DB dumps (safe cleanup)
+  if compgen -G "${APP_DIR}_DB_"*.sql > /dev/null; then
+    msg_warn "Found leftover database dump(s) that have been included in the previous backup files — removing:"
+    ls -lh "${APP_DIR}_DB_"*.sql 2>/dev/null | sed 's/^/  - /'
+    rm -f "${APP_DIR}_DB_"*.sql 2>/dev/null || true
+  fi
+
   msg_info "Stopping services for $APP"
   systemctl stop dispatcharr-celery
   systemctl stop dispatcharr-celerybeat
