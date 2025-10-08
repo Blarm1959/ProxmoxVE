@@ -52,9 +52,7 @@ function update_script() {
     exit
   fi
 
-  if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
-    exit
-  fi
+  $STD bash -c '! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr" || exit 1'
 
   # --- Version check using version.py on main vs local ---
   REMOTE_VERSION="$($STD curl -fsSL "https://raw.githubusercontent.com/Dispatcharr/Dispatcharr/main/version.py" | awk -F"'" '/__version__/ {print $2; exit}')"
