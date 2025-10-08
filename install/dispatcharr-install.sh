@@ -37,7 +37,7 @@ NGINX_SITE="/etc/nginx/sites-available/dispatcharr.conf"
 SERVER_IP="$(hostname -I | tr -s ' ' | cut -d' ' -f1)"
 
 APP_LC=$(echo "${APP,,}" | tr -d ' ')
-VERSION_FILE"$HOME/.${APP_LC}"
+VERSION_FILE="$HOME/.${APP_LC}"
 
 msg_info "Installing core packages"
 export DEBIAN_FRONTEND=noninteractive

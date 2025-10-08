@@ -47,7 +47,7 @@ function update_script() {
   SERVER_IP="$(hostname -I | tr -s ' ' | cut -d' ' -f1)"
 
   APP_LC=$(echo "${APP,,}" | tr -d ' ')
-  VERSION_FILE"$HOME/.${APP_LC}"
+  VERSION_FILE="$HOME/.${APP_LC}"
 
   # Check if installation is present
   if [[ ! -d "$APP_DIR" ]]; then
