@@ -5,6 +5,6 @@ sudo vi /etc/ssh/sshd_config
 PermitRootLogin yes
 sudo systemctl restart ssh
 
-dispatcharr_downgrade.sh
-sudo chmod +x ./dispatcharr_downgrade.sh
-sudo ./dispatcharr_downgrade.sh --ver v0.10.2
+force_version.sh
+sudo chmod +x ./force_version.sh
+sudo ./force_version.sh (for 0.0.0 or sudo ./force_version.sh --version v0.10.2 or sudo ./force_version.sh -V 0.10.2)
