@@ -93,30 +93,27 @@ function update_script() {
   [ -d "$TMP_PGDUMP" ] || install -d -m 700 -o postgres -g postgres "$TMP_PGDUMP"
   sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"
   [ -s "${DB_BACKUP_FILE}" ] || { msg_error "Database dump is empty — aborting backup"; exit 1; }
-# Arrays (unchanged)
-TAR_OPTS=( -C / --warning=no-file-changed --ignore-failed-read )
-TAR_EXCLUDES=(
-  --exclude=opt/dispatcharr/env
-  --exclude=opt/dispatcharr/env/**
-  --exclude=opt/dispatcharr/frontend
-  --exclude=opt/dispatcharr/frontend/**
-  --exclude=opt/dispatcharr/static
-  --exclude=opt/dispatcharr/static/**
-)
-TAR_ITEMS=(
-  "${APP_DIR#/}"
-  data
-  "${NGINX_SITE#/}"
-  "${NGINX_SITE_ENABLED#/}"
-  "${SYSTEMD_DIR#/}/dispatcharr.service"
-  "${SYSTEMD_DIR#/}/dispatcharr-celery.service"
-  "${SYSTEMD_DIR#/}/dispatcharr-celerybeat.service"
-  "${SYSTEMD_DIR#/}/dispatcharr-daphne.service"
-  "${DB_BACKUP_FILE#/}"
-)
-
-# FINAL: options + excludes + items (this order matters)
-$STD tar -czf "${BACKUP_FILE}" "${TAR_OPTS[@]}" "${TAR_EXCLUDES[@]}" "${TAR_ITEMS[@]}"
+  TAR_OPTS=( -C / --warning=no-file-changed --ignore-failed-read )
+  TAR_EXCLUDES=(
+    --exclude=opt/dispatcharr/env
+    --exclude=opt/dispatcharr/env/**
+    --exclude=opt/dispatcharr/frontend
+    --exclude=opt/dispatcharr/frontend/**
+    --exclude=opt/dispatcharr/static
+    --exclude=opt/dispatcharr/static/**
+  )
+  TAR_ITEMS=(
+    "${APP_DIR#/}"
+    data
+    "${NGINX_SITE#/}"
+    "${NGINX_SITE_ENABLED#/}"
+    "${SYSTEMD_DIR#/}/dispatcharr.service"
+    "${SYSTEMD_DIR#/}/dispatcharr-celery.service"
+    "${SYSTEMD_DIR#/}/dispatcharr-celerybeat.service"
+    "${SYSTEMD_DIR#/}/dispatcharr-daphne.service"
+    "${DB_BACKUP_FILE#/}"
+  )
+  $STD tar -czf "${BACKUP_FILE}" "${TAR_OPTS[@]}" "${TAR_EXCLUDES[@]}" "${TAR_ITEMS[@]}"
   rm -f "${DB_BACKUP_FILE}"
   BACKUP_GLOB="/root/${APP}_"'*.tar.gz'
   ALL_BACKUPS=$(ls -1 "${BACKUP_GLOB}" 2>/dev/null | sort -r || true)
