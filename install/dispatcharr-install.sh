@@ -13,8 +13,6 @@ setting_up_container
 network_check
 update_os
 
-# Setup App
-
 # Variables
 APP="Dispatcharr"
 DISPATCH_USER="dispatcharr"

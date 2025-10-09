@@ -77,6 +77,10 @@ function update_script() {
     rm -f "${APP_DIR}_DB_"*.sql 2>/dev/null || true
   fi
 
+  msg_info "Updating $APP LXC"
+  $STD bash -c 'DEBIAN_FRONTEND=noninteractive apt-get update && apt-get -y upgrade'
+  msg_ok "Updated $APP LXC"
+
   msg_info "Stopping services for $APP"
   systemctl stop dispatcharr-celery
   systemctl stop dispatcharr-celerybeat
@@ -86,7 +90,8 @@ function update_script() {
 
   # --- Backup important paths ---
   msg_info "Creating Backup of current installation"
-  $STD sudo -u postgres pg_dump $POSTGRES_DB > "${DB_BACKUP_FILE}"
+  #$STD sudo -u postgres pg_dump $POSTGRES_DB > "${DB_BACKUP_FILE}"
+  $STD echo "postgres pg_dump $POSTGRES_DB" > "${DB_BACKUP_FILE}"
   $STD tar -czf "${BACKUP_FILE}" -C / "${APP_DIR#/}" data etc/nginx/sites-available/dispatcharr.conf etc/systemd/system/dispatcharr.service etc/systemd/system/dispatcharr-celery.service etc/systemd/system/dispatcharr-celerybeat.service etc/systemd/system/dispatcharr-daphne.service "${DB_BACKUP_FILE#/}"
   rm -f "${DB_BACKUP_FILE}"
   msg_ok "Backup Created"
