@@ -43,7 +43,7 @@ function update_script() {
 
   SERVER_IP="$(hostname -I | tr -s ' ' | cut -d' ' -f1)"
 
-  DTHHMM="$(date +%F_%H:%M)"
+  DTHHMM="$(date +%F_%H-%M)"
   BACKUP_FILE="/root/${APP}_${DTHHMM}.tar.gz"
   TMP_PGDUMP="/tmp/pgdump"
   DB_BACKUP_FILE="${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump"
@@ -105,9 +105,9 @@ function update_script() {
     "${DB_BACKUP_FILE#/}"
   )
   TAR_EXCLUDES=(
-    "--exclude=${APP_DIR#/}/env/*"
-    "--exclude=${APP_DIR#/}/frontend/*"
-    "--exclude=${APP_DIR#/}/static/*"
+    "--exclude=${APP_DIR#/}/env"
+    "--exclude=${APP_DIR#/}/frontend"
+    "--exclude=${APP_DIR#/}/static"
   )
   $STD tar -czf "${BACKUP_FILE}" -C / --warning=no-file-changed --ignore-failed-read "${TAR_ITEMS[@]}" "${TAR_EXCLUDES[@]}"
   rm -f "${DB_BACKUP_FILE}"
