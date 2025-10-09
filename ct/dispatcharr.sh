@@ -93,9 +93,8 @@ function update_script() {
   [ -d "$TMP_PGDUMP" ] || install -d -m 700 -o postgres -g postgres "$TMP_PGDUMP"
   sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"
   [ -s "${DB_BACKUP_FILE}" ] || { msg_error "Database dump is empty — aborting backup"; exit 1; }
-# Build options/excludes/items as arrays (no quoting issues)
+# Arrays (unchanged)
 TAR_OPTS=( -C / --warning=no-file-changed --ignore-failed-read )
-
 TAR_EXCLUDES=(
   --exclude=opt/dispatcharr/env
   --exclude=opt/dispatcharr/env/**
@@ -104,10 +103,9 @@ TAR_EXCLUDES=(
   --exclude=opt/dispatcharr/static
   --exclude=opt/dispatcharr/static/**
 )
-
 TAR_ITEMS=(
   "${APP_DIR#/}"
-  "data"
+  data
   "${NGINX_SITE#/}"
   "${NGINX_SITE_ENABLED#/}"
   "${SYSTEMD_DIR#/}/dispatcharr.service"
@@ -117,8 +115,8 @@ TAR_ITEMS=(
   "${DB_BACKUP_FILE#/}"
 )
 
-# Single call via $STD; arrays expand to proper separate args
-$STD tar -czf "${BACKUP_FILE}" "${TAR_OPTS[@]}" "${TAR_ITEMS[@]}" "${TAR_EXCLUDES[@]}"
+# FINAL: options + excludes + items (this order matters)
+$STD tar -czf "${BACKUP_FILE}" "${TAR_OPTS[@]}" "${TAR_EXCLUDES[@]}" "${TAR_ITEMS[@]}"
   rm -f "${DB_BACKUP_FILE}"
   BACKUP_GLOB="/root/${APP}_"'*.tar.gz'
   ALL_BACKUPS=$(ls -1 "${BACKUP_GLOB}" 2>/dev/null | sort -r || true)
