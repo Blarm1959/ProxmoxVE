@@ -80,32 +80,59 @@ function update_script() {
   systemctl stop dispatcharr
   msg_ok "Services stopped for $APP"
 
+# --- Vars (already set earlier) ---
+# SYSTEMD_DIR="/etc/systemd/system"
+# NGINX_SITE="/etc/nginx/sites-available/dispatcharr.conf"
+# NGINX_SITE_ENABLED="${NGINX_SITE/sites-available/sites-enabled}"
+# APP_DIR="${APP_DIR%/}"
+# DTHHMM="$(date +%F_%H:%M)"
+# BACKUPS_TOKEEP=3
+
+BACKUP_FILE="/root/${APP}_${DTHHMM}.tar.gz"
+
+# Secure tmp dump dir for Postgres
+TMP_PGDUMP="/tmp/pgdump"
+install -d -m 700 -o postgres -g postgres "$TMP_PGDUMP"
+DB_BACKUP_FILE="${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump"
+
   msg_info "Creating Backup of current installation"
 
-  # Ensure secure temp dir for DB dump
-  install -d -m 700 -o postgres -g postgres "$TMP_PGDUMP"
+  # 1) DB dump
+  if ! $STD sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"; then
+    msg_error "Database dump failed: ${POSTGRES_DB}"
+    exit 1
+  fi
 
-  # PostgreSQL dump (custom format -> pg_restore)
-  $STD sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"
+  # 2) Build tar items only if they exist (relative to /)
+  TAR_ITEMS="${APP_DIR#/} data ${DB_BACKUP_FILE#/}"
 
-  # Build tar lists (use paths relative to / to avoid absolute-path warnings)
-  TAR_ITEMS="${APP_DIR#/} data ${NGINX_SITE#/} ${NGINX_SITE_ENABLED#/} \
-  ${SYSTEMD_DIR#/}/dispatcharr.service ${SYSTEMD_DIR#/}/dispatcharr-celery.service \
-  ${SYSTEMD_DIR#/}/dispatcharr-celerybeat.service ${SYSTEMD_DIR#/}/dispatcharr-daphne.service \
-  ${DB_BACKUP_FILE#/}"
+  add_item() { [ -e "/$1" ] && TAR_ITEMS="$TAR_ITEMS $1"; }
 
+  add_item "${NGINX_SITE#/}"
+  add_item "${NGINX_SITE_ENABLED#/}"
+  add_item "${SYSTEMD_DIR#/}/dispatcharr.service"
+  add_item "${SYSTEMD_DIR#/}/dispatcharr-celery.service"
+  add_item "${SYSTEMD_DIR#/}/dispatcharr-celerybeat.service"
+  add_item "${SYSTEMD_DIR#/}/dispatcharr-daphne.service"
+
+  # 3) Excludes & opts
   TAR_EXCLUDES="--exclude='${APP_DIR#/}/env/*' --exclude='${APP_DIR#/}/frontend/*' --exclude='${APP_DIR#/}/static/*'"
   TAR_OPTS="--best -C / --warning=no-file-changed --ignore-failed-read"
 
-  # One-liner tar with unquoted list expansion
+  # 4) One-line tar via $STD (unquoted list expansion is intentional)
   # shellcheck disable=SC2086
-  $STD tar -czf "${BACKUP_FILE}" ${TAR_OPTS} ${TAR_ITEMS} ${TAR_EXCLUDES}
+  if ! $STD tar -czf "${BACKUP_FILE}" ${TAR_OPTS} ${TAR_ITEMS} ${TAR_EXCLUDES}; then
+    msg_error "Backup archive creation failed"
+    rm -f "${DB_BACKUP_FILE}"
+    exit 1
+  fi
 
-  # Clean temp DB dump
+  # 5) Cleanup temp dump
   rm -f "${DB_BACKUP_FILE}"
 
-  # Keep only the last N backups (by filename order)
+  # 6) Keep last N backups by filename
   BACKUP_GLOB="/root/${APP}_"'*.tar.gz'
+  # shellcheck disable=SC2012
   ALL_BACKUPS=$(ls -1 "${BACKUP_GLOB}" 2>/dev/null | sort -r || true)
   OLD_BACKUPS=$(echo "${ALL_BACKUPS}" | tail -n +$((BACKUPS_TOKEEP + 1)) || true)
   [ -n "${OLD_BACKUPS}" ] && echo "${OLD_BACKUPS}" | xargs -r rm -f
