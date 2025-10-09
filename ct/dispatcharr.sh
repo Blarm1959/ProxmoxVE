@@ -88,49 +88,27 @@ function update_script() {
   systemctl stop dispatcharr
   msg_ok "Services stopped for $APP"
 
+  # --- Backup important paths and database ---
   msg_info "Creating Backup of current installation"
-
-  # 1) DB dump
-  echo "${DB_BACKUP_FILE}"
-  [ -d "$TMP_PGDUMP" ] || install -d -m 700 -o postgres -g postgres "$TMP_PGDUMP"
-  echo "sudo -u postgres pg_dump -Fc -f ${DB_BACKUP_FILE} $POSTGRES_DB"
-  sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"
-
-  # 2) Build tar items only if they exist (relative to /)
-  TAR_ITEMS="${APP_DIR#/} data ${DB_BACKUP_FILE#/}"
-
-  add_item() { [ -e "/$1" ] && TAR_ITEMS="$TAR_ITEMS $1"; }
-
-  add_item "${NGINX_SITE#/}"
-  add_item "${NGINX_SITE_ENABLED#/}"
-  add_item "${SYSTEMD_DIR#/}/dispatcharr.service"
-  add_item "${SYSTEMD_DIR#/}/dispatcharr-celery.service"
-  add_item "${SYSTEMD_DIR#/}/dispatcharr-celerybeat.service"
-  add_item "${SYSTEMD_DIR#/}/dispatcharr-daphne.service"
-
-  # 3) Excludes & opts
-  TAR_EXCLUDES="--exclude='${APP_DIR#/}/env/*' --exclude='${APP_DIR#/}/frontend/*' --exclude='${APP_DIR#/}/static/*'"
-  TAR_OPTS="--best -C / --warning=no-file-changed --ignore-failed-read"
-
-  # 4) One-line tar via $STD (unquoted list expansion is intentional)
-  # shellcheck disable=SC2086
-  if ! $STD tar -czf "${BACKUP_FILE}" ${TAR_OPTS} ${TAR_ITEMS} ${TAR_EXCLUDES}; then
-    msg_error "Backup archive creation failed"
-    rm -f "${DB_BACKUP_FILE}"
-    exit 1
-  fi
-
-  # 5) Cleanup temp dump
-  rm -f "${DB_BACKUP_FILE}"
-
-  # 6) Keep last N backups by filename
-  BACKUP_GLOB="/root/${APP}_"'*.tar.gz'
-  # shellcheck disable=SC2012
-  ALL_BACKUPS=$(ls -1 "${BACKUP_GLOB}" 2>/dev/null | sort -r || true)
-  OLD_BACKUPS=$(echo "${ALL_BACKUPS}" | tail -n +$((BACKUPS_TOKEEP + 1)) || true)
-  [ -n "${OLD_BACKUPS}" ] && echo "${OLD_BACKUPS}" | xargs -r rm -f
-
-  msg_ok "Backup Created: ${BACKUP_FILE}"
+  TAR_ITEMS=(
+    "${APP_DIR#/}"
+    "data"
+    "${NGINX_SITE#/}"
+    "${NGINX_SITE_ENABLED#/}"
+    "${SYSTEMD_DIR#/}/dispatcharr.service"
+    "${SYSTEMD_DIR#/}/dispatcharr-celery.service"
+    "${SYSTEMD_DIR#/}/dispatcharr-celerybeat.service"
+    "${SYSTEMD_DIR#/}/dispatcharr-daphne.service"
+    "${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump"
+  )
+  TAR_EXCLUDES=(
+    "--exclude=${APP_DIR#/}/static"
+    "--exclude=${APP_DIR#/}/frontend"
+    "--exclude=${APP_DIR#/}/env"
+  )
+  $STD tar -czf "${BACKUP_FILE}" -C / --warning=no-file-changed --ignore-failed-read "${TAR_ITEMS[@]}" "${TAR_EXCLUDES[@]}"
+  rm -f "${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump" 2>/dev/null || true
+  msg_ok "Backup Created"
 
   # ====== BEGIN update steps ======
 
