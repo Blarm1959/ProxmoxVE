@@ -38,7 +38,7 @@ function update_script() {
   GUNICORN_RUNTIME_DIR="dispatcharr"
   GUNICORN_SOCKET="/run/${GUNICORN_RUNTIME_DIR}/dispatcharr.sock"
 
-  DTHHMM="$(date +%F_%H:%M).tar.gz"
+  DTHHMM="$(date +%F_%H:%M)"
   BACKUP_FILE="${APP_DIR}_${DTHHMM}.tar.gz"
   DB_BACKUP_FILE="${APP_DIR}_DB_${DTHHMM}.sql"
 
