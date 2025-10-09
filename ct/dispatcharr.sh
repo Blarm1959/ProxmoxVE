@@ -62,11 +62,13 @@ function update_script() {
     exit
   fi
 
-  # Remove any leftover temporary DB dumps (safe cleanup)
-  if compgen -G "/root/${APP}_DB_*.dump" > /dev/null; then
-    msg_warn "Found leftover database dump(s) that may have been included in previous backups — removing:"
-    ls -lh /root/${APP}_DB_*.dump 2>/dev/null | sed 's/^/  - /'
-    rm -f /root/${APP}_DB_*.dump 2>/dev/null || true
+  # --- Remove any leftover temporary DB dumps (safe cleanup) ---
+  if [ -d "$TMP_PGDUMP" ]; then
+    if compgen -G "${TMP_PGDUMP}/${APP}_DB_*.dump" > /dev/null; then
+      msg_warn "Found leftover database dump(s) that may have been included in previous backups — removing:"
+      ls -lh "${TMP_PGDUMP}/${APP}_DB_*.dump" 2>/dev/null | sed 's/^/  - /'
+      sudo -u postgres rm -f "${TMP_PGDUMP}/${APP}_DB_*.dump" 2>/dev/null || true
+    fi
   fi
 
   msg_info "Updating $APP LXC"
