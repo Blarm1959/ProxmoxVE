@@ -45,7 +45,8 @@ function update_script() {
 
   DTHHMM="$(date +%F_%H:%M)"
   BACKUP_FILE="/root/${APP}_${DTHHMM}.tar.gz"
-  DB_BACKUP_FILE="/root/${APP}_DB_${DTHHMM}.dump"
+  TMP_PGDUMP="/tmp/pgdump"
+  DB_BACKUP_FILE="${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump"
   BACKUPS_TOKEEP=3
 
   APP_LC=$(echo "${APP,,}" | tr -d ' ')
@@ -68,7 +69,7 @@ function update_script() {
     ls -lh /root/${APP}_DB_*.dump 2>/dev/null | sed 's/^/  - /'
     rm -f /root/${APP}_DB_*.dump 2>/dev/null || true
   fi
-
+last
   msg_info "Updating $APP LXC"
   $STD bash -c 'DEBIAN_FRONTEND=noninteractive apt-get update && apt-get -y upgrade'
   msg_ok "Updated $APP LXC"
@@ -82,6 +83,7 @@ function update_script() {
 
   msg_info "Creating Backup of current installation"
   # PostgreSQL dump (custom format -> pg_restore)
+  install -d -m 700 -o postgres -g postgres "$TMP_PGDUMP"
   $STD sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"
   # Compose tar parts (space-separated strings)
   TAR_ITEMS="${APP_DIR} data ${NGINX_SITE} ${NGINX_SITE_ENABLED} \
