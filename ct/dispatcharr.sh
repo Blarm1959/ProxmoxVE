@@ -90,6 +90,9 @@ function update_script() {
 
   # --- Backup important paths and database ---
   msg_info "Creating Backup of current installation"
+  [ -d "$TMP_PGDUMP" ] || install -d -m 700 -o postgres -g postgres "$TMP_PGDUMP"
+  sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"
+  [ -s "${DB_BACKUP_FILE}" ] || { msg_error "Database dump is empty — aborting backup"; exit 1; }
   TAR_ITEMS=(
     "${APP_DIR#/}"
     "data"
@@ -99,16 +102,20 @@ function update_script() {
     "${SYSTEMD_DIR#/}/dispatcharr-celery.service"
     "${SYSTEMD_DIR#/}/dispatcharr-celerybeat.service"
     "${SYSTEMD_DIR#/}/dispatcharr-daphne.service"
-    "${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump"
+    "${DB_BACKUP_FILE#/}"
   )
   TAR_EXCLUDES=(
-    "--exclude=${APP_DIR#/}/static"
-    "--exclude=${APP_DIR#/}/frontend"
-    "--exclude=${APP_DIR#/}/env"
+    "--exclude=${APP_DIR#/}/env/*"
+    "--exclude=${APP_DIR#/}/frontend/*"
+    "--exclude=${APP_DIR#/}/static/*"
   )
   $STD tar -czf "${BACKUP_FILE}" -C / --warning=no-file-changed --ignore-failed-read "${TAR_ITEMS[@]}" "${TAR_EXCLUDES[@]}"
-  rm -f "${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump" 2>/dev/null || true
-  msg_ok "Backup Created"
+  rm -f "${DB_BACKUP_FILE}"
+  BACKUP_GLOB="/root/${APP}_"'*.tar.gz'
+  ALL_BACKUPS=$(ls -1 "${BACKUP_GLOB}" 2>/dev/null | sort -r || true)
+  OLD_BACKUPS=$(echo "${ALL_BACKUPS}" | tail -n +$((BACKUPS_TOKEEP + 1)) || true)
+  [ -n "${OLD_BACKUPS}" ] && echo "${OLD_BACKUPS}" | xargs -r rm -f
+  msg_ok "Backup Created: ${BACKUP_FILE}"
 
   # ====== BEGIN update steps ======
 
