@@ -85,24 +85,10 @@ function update_script() {
   systemctl stop dispatcharr
   msg_ok "Services stopped for $APP"
 
-# --- Vars (already set earlier) ---
-# SYSTEMD_DIR="/etc/systemd/system"
-# NGINX_SITE="/etc/nginx/sites-available/dispatcharr.conf"
-# NGINX_SITE_ENABLED="${NGINX_SITE/sites-available/sites-enabled}"
-# APP_DIR="${APP_DIR%/}"
-# DTHHMM="$(date +%F_%H:%M)"
-# BACKUPS_TOKEEP=3
-
-BACKUP_FILE="/root/${APP}_${DTHHMM}.tar.gz"
-
-# Secure tmp dump dir for Postgres
-TMP_PGDUMP="/tmp/pgdump"
-install -d -m 700 -o postgres -g postgres "$TMP_PGDUMP"
-DB_BACKUP_FILE="${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump"
-
   msg_info "Creating Backup of current installation"
 
   # 1) DB dump
+  echo "${DB_BACKUP_FILE}"
   if ! $STD sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"; then
     msg_error "Database dump failed: ${POSTGRES_DB}"
     exit 1
