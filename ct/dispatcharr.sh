@@ -92,10 +92,8 @@ function update_script() {
 
   # 1) DB dump
   echo "${DB_BACKUP_FILE}"
-  if ! $STD sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"; then
-    msg_error "Database dump failed: ${POSTGRES_DB}"
-    exit 1
-  fi
+  [ -d "$TMP_PGDUMP" ] || install -d -m 700 -o postgres -g postgres "$TMP_PGDUMP"
+  $STD sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"
 
   # 2) Build tar items only if they exist (relative to /)
   TAR_ITEMS="${APP_DIR#/} data ${DB_BACKUP_FILE#/}"
