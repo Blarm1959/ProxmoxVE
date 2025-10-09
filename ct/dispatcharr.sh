@@ -63,13 +63,12 @@ function update_script() {
   fi
 
   # Remove any leftover temporary DB dumps (safe cleanup)
-  OLD_DUMPS=(/root/${APP}_DB_*.dump)
   if compgen -G "/root/${APP}_DB_*.dump" > /dev/null; then
     msg_warn "Found leftover database dump(s) that may have been included in previous backups — removing:"
     ls -lh /root/${APP}_DB_*.dump 2>/dev/null | sed 's/^/  - /'
     rm -f /root/${APP}_DB_*.dump 2>/dev/null || true
   fi
-last
+
   msg_info "Updating $APP LXC"
   $STD bash -c 'DEBIAN_FRONTEND=noninteractive apt-get update && apt-get -y upgrade'
   msg_ok "Updated $APP LXC"
@@ -82,25 +81,37 @@ last
   msg_ok "Services stopped for $APP"
 
   msg_info "Creating Backup of current installation"
-  # PostgreSQL dump (custom format -> pg_restore)
+
+  # Ensure secure temp dir for DB dump
   install -d -m 700 -o postgres -g postgres "$TMP_PGDUMP"
+
+  # PostgreSQL dump (custom format -> pg_restore)
   $STD sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"
-  # Compose tar parts (space-separated strings)
-  TAR_ITEMS="${APP_DIR} data ${NGINX_SITE} ${NGINX_SITE_ENABLED} \
-  ${SYSTEMD_DIR}/dispatcharr.service ${SYSTEMD_DIR}/dispatcharr-celery.service \
-  ${SYSTEMD_DIR}/dispatcharr-celerybeat.service ${SYSTEMD_DIR}/dispatcharr-daphne.service \
-  ${DB_BACKUP_FILE}"
+
+  # Build tar lists (use paths relative to / to avoid absolute-path warnings)
+  TAR_ITEMS="${APP_DIR#/} data ${NGINX_SITE#/} ${NGINX_SITE_ENABLED#/} \
+  ${SYSTEMD_DIR#/}/dispatcharr.service ${SYSTEMD_DIR#/}/dispatcharr-celery.service \
+  ${SYSTEMD_DIR#/}/dispatcharr-celerybeat.service ${SYSTEMD_DIR#/}/dispatcharr-daphne.service \
+  ${DB_BACKUP_FILE#/}"
+
   TAR_EXCLUDES="--exclude='${APP_DIR#/}/env/*' --exclude='${APP_DIR#/}/frontend/*' --exclude='${APP_DIR#/}/static/*'"
   TAR_OPTS="--best -C / --warning=no-file-changed --ignore-failed-read"
-  $STD tar -czf "${BACKUP_FILE}" "${TAR_OPTS}" "${TAR_ITEMS}" "${TAR_EXCLUDES}"
+
+  # One-liner tar with unquoted list expansion
+  # shellcheck disable=SC2086
+  $STD tar -czf "${BACKUP_FILE}" ${TAR_OPTS} ${TAR_ITEMS} ${TAR_EXCLUDES}
+
   # Clean temp DB dump
   rm -f "${DB_BACKUP_FILE}"
-  # Keep only last BACKUPS_TOKEEP backups (by filename order, not timestamp)
+
+  # Keep only the last N backups (by filename order)
   BACKUP_GLOB="/root/${APP}_"'*.tar.gz'
   ALL_BACKUPS=$(ls -1 "${BACKUP_GLOB}" 2>/dev/null | sort -r || true)
   OLD_BACKUPS=$(echo "${ALL_BACKUPS}" | tail -n +$((BACKUPS_TOKEEP + 1)) || true)
   [ -n "${OLD_BACKUPS}" ] && echo "${OLD_BACKUPS}" | xargs -r rm -f
+
   msg_ok "Backup Created: ${BACKUP_FILE}"
+
   # ====== BEGIN update steps ======
 
   # Fetch latest release into APP_DIR (PVE Helper tools.func)
