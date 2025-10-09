@@ -64,10 +64,13 @@ function update_script() {
 
   # --- Remove any leftover temporary DB dumps (safe cleanup) ---
   if [ -d "$TMP_PGDUMP" ]; then
-    if compgen -G "${TMP_PGDUMP}/${APP}_DB_*.dump" > /dev/null; then
+    LEFTOVERS=($(compgen -G "${TMP_PGDUMP}/${APP}_DB_*.dump"))
+    if [ ${#LEFTOVERS[@]} -gt 0 ]; then
       msg_warn "Found leftover database dump(s) that may have been included in previous backups — removing:"
-      ls -lh "${TMP_PGDUMP}/${APP}_DB_*.dump" 2>/dev/null | sed 's/^/  - /'
-      sudo -u postgres rm -f "${TMP_PGDUMP}/${APP}_DB_*.dump" 2>/dev/null || true
+      for f in "${LEFTOVERS[@]}"; do
+        echo "  - $(basename "$f")"
+      done
+      sudo -u postgres rm -f "${LEFTOVERS[@]}" 2>/dev/null || true
     fi
   fi
 
