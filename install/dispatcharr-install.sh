@@ -29,6 +29,7 @@ GUNICORN_RUNTIME_DIR="dispatcharr"
 GUNICORN_SOCKET="/run/${GUNICORN_RUNTIME_DIR}/dispatcharr.sock"
 SYSTEMD_DIR="/etc/systemd/system"
 NGINX_SITE="/etc/nginx/sites-available/dispatcharr.conf"
+NGINX_SITE_ENABLED="${NGINX_SITE/sites-available/sites-enabled}"
 
 SERVER_IP="$(hostname -I | tr -s ' ' | cut -d' ' -f1)"
 
@@ -264,7 +265,7 @@ server {
 }
 EOF
 
-ln -sf "${NGINX_SITE}" "/etc/nginx/sites-enabled/$(basename "${NGINX_SITE}")"
+ln -sf "${NGINX_SITE}" "${NGINX_SITE_ENABLED}"
 [ -f /etc/nginx/sites-enabled/default ] && rm /etc/nginx/sites-enabled/default
 $STD nginx -t >/dev/null
 $STD systemctl restart nginx

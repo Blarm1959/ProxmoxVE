@@ -37,12 +37,16 @@ function update_script() {
   WEBSOCKET_PORT="8001"
   GUNICORN_RUNTIME_DIR="dispatcharr"
   GUNICORN_SOCKET="/run/${GUNICORN_RUNTIME_DIR}/dispatcharr.sock"
-
-  DTHHMM="$(date +%F_%H:%M)"
-  BACKUP_FILE="${APP_DIR}_${DTHHMM}.tar.gz"
-  DB_BACKUP_FILE="${APP_DIR}_DB_${DTHHMM}.sql"
+  SYSTEMD_DIR="/etc/systemd/system"
+  NGINX_SITE="/etc/nginx/sites-available/dispatcharr.conf"
+  NGINX_SITE_ENABLED="${NGINX_SITE/sites-available/sites-enabled}"
 
   SERVER_IP="$(hostname -I | tr -s ' ' | cut -d' ' -f1)"
+
+  DTHHMM="$(date +%F_%H:%M)"
+  BACKUP_FILE="/root/${APP}_${DTHHMM}.tar.gz"
+  DB_BACKUP_FILE="/root/${APP}_DB_${DTHHMM}.dump"
+  BACKUPS_TOKEEP=3
 
   APP_LC=$(echo "${APP,,}" | tr -d ' ')
   VERSION_FILE="$HOME/.${APP_LC}"
@@ -57,24 +61,12 @@ function update_script() {
     exit
   fi
 
-  # Prevent accumulating large backup archives
-  OLD_BACKUPS=("${APP_DIR}"_*.tar.gz)
-  OLD_DUMPS=("${APP_DIR}_DB_"*.sql)
-
-  # Check for any previous backup tarballs
-  if compgen -G "${APP_DIR}_*.tar.gz" > /dev/null; then
-    msg_warn "Existing backup archive(s) detected in ${APP_DIR}:"
-    ls -lh "${APP_DIR}"_*.tar.gz 2>/dev/null | sed 's/^/  - /'
-    msg_warn "Each update creates a large .tar.gz backup file."
-    msg_warn "Please move or remove old backup(s) before running update again."
-    exit
-  fi
-
   # Remove any leftover temporary DB dumps (safe cleanup)
-  if compgen -G "${APP_DIR}_DB_"*.sql > /dev/null; then
-    msg_warn "Found leftover database dump(s) that have been included in the previous backup files — removing:"
-    ls -lh "${APP_DIR}_DB_"*.sql 2>/dev/null | sed 's/^/  - /'
-    rm -f "${APP_DIR}_DB_"*.sql 2>/dev/null || true
+  OLD_DUMPS=(/root/${APP}_DB_*.dump)
+  if compgen -G "/root/${APP}_DB_*.dump" > /dev/null; then
+    msg_warn "Found leftover database dump(s) that may have been included in previous backups — removing:"
+    ls -lh /root/${APP}_DB_*.dump 2>/dev/null | sed 's/^/  - /'
+    rm -f /root/${APP}_DB_*.dump 2>/dev/null || true
   fi
 
   msg_info "Updating $APP LXC"
@@ -88,13 +80,25 @@ function update_script() {
   systemctl stop dispatcharr
   msg_ok "Services stopped for $APP"
 
-  # --- Backup important paths ---
   msg_info "Creating Backup of current installation"
-  $STD sudo -u postgres pg_dump $POSTGRES_DB > "${DB_BACKUP_FILE}"
-  $STD tar -czf "${BACKUP_FILE}" -C / "${APP_DIR#/}" data etc/nginx/sites-available/dispatcharr.conf etc/systemd/system/dispatcharr.service etc/systemd/system/dispatcharr-celery.service etc/systemd/system/dispatcharr-celerybeat.service etc/systemd/system/dispatcharr-daphne.service "${DB_BACKUP_FILE#/}"
+  # PostgreSQL dump (custom format -> pg_restore)
+  $STD sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"
+  # Compose tar parts (space-separated strings)
+  TAR_ITEMS="${APP_DIR} data ${NGINX_SITE} ${NGINX_SITE_ENABLED} \
+  ${SYSTEMD_DIR}/dispatcharr.service ${SYSTEMD_DIR}/dispatcharr-celery.service \
+  ${SYSTEMD_DIR}/dispatcharr-celerybeat.service ${SYSTEMD_DIR}/dispatcharr-daphne.service \
+  ${DB_BACKUP_FILE}"
+  TAR_EXCLUDES="--exclude='${APP_DIR#/}/env/*' --exclude='${APP_DIR#/}/frontend/*' --exclude='${APP_DIR#/}/static/*'"
+  TAR_OPTS="--best -C / --warning=no-file-changed --ignore-failed-read"
+  $STD tar -czf "${BACKUP_FILE}" "${TAR_OPTS}" "${TAR_ITEMS}" "${TAR_EXCLUDES}"
+  # Clean temp DB dump
   rm -f "${DB_BACKUP_FILE}"
-  msg_ok "Backup Created"
-
+  # Keep only last BACKUPS_TOKEEP backups (by filename order, not timestamp)
+  BACKUP_GLOB="/root/${APP}_"'*.tar.gz'
+  ALL_BACKUPS=$(ls -1 "${BACKUP_GLOB}" 2>/dev/null | sort -r || true)
+  OLD_BACKUPS=$(echo "${ALL_BACKUPS}" | tail -n +$((BACKUPS_TOKEEP + 1)) || true)
+  [ -n "${OLD_BACKUPS}" ] && echo "${OLD_BACKUPS}" | xargs -r rm -f
+  msg_ok "Backup Created: ${BACKUP_FILE}"
   # ====== BEGIN update steps ======
 
   # Fetch latest release into APP_DIR (PVE Helper tools.func)
