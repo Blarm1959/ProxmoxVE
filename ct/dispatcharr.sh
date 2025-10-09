@@ -64,14 +64,17 @@ function update_script() {
 
   # --- Remove any leftover temporary DB dumps (safe cleanup) ---
   if [ -d "$TMP_PGDUMP" ]; then
-    LEFTOVERS=($(compgen -G "${TMP_PGDUMP}/${APP}_DB_*.dump"))
-    if [ ${#LEFTOVERS[@]} -gt 0 ]; then
-      msg_warn "Found leftover database dump(s) that may have been included in previous backups — removing:"
-      for f in "${LEFTOVERS[@]}"; do
-        echo "  - $(basename "$f")"
-      done
-      sudo -u postgres rm -f "${LEFTOVERS[@]}" 2>/dev/null || true
-    fi
+    shown=0
+    for f in "$TMP_PGDUMP/${APP}_DB_"*.dump; do
+      # If the glob didn't match anything, skip the literal pattern
+      [ -e "$f" ] || continue
+      if [ "$shown" -eq 0 ]; then
+        msg_warn "Found leftover database dump(s) that may have been included in previous backups — removing:"
+        shown=1
+      fi
+      echo "  - $(basename "$f")"
+      sudo -u postgres rm -f "$f" 2>/dev/null || true
+    done
   fi
 
   msg_info "Updating $APP LXC"
