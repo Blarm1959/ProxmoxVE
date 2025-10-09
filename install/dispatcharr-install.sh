@@ -117,20 +117,9 @@ sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}/frontend\"; if [ -f package-lo
 $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
 msg_ok "Frontend built"
 
-msg_info "Creating application data directories"
-mkdir -p /data/logos \
-         /data/recordings \
-         /data/uploads/m3us \
-         /data/uploads/epgs \
-         /data/m3us \
-         /data/epgs \
-         /data/plugins
-chown -R "$DISPATCH_USER:$DISPATCH_GROUP" /data
-chmod +x /data
-
-mkdir -p "${APP_DIR}/static" "${APP_DIR}/media"
-chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "${APP_DIR}/static" "${APP_DIR}/media"
-msg_ok "Application data directories ready"
+msg_info "Creating application data directory"
+install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" /data
+msg_ok "Application data directory ready"
 
 msg_info "Running Django migrations and collectstatic"
 $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
