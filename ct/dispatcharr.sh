@@ -49,6 +49,7 @@ function update_script() {
   TMP_PGDUMP="/tmp/pgdump"
   DB_BACKUP_FILE="${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump"
   BACKUPS_TOKEEP=3
+  BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
 
   APP_LC=$(echo "${APP,,}" | tr -d ' ')
   VERSION_FILE="$HOME/.${APP_LC}"
@@ -76,6 +77,30 @@ function update_script() {
       echo "  - $(basename "$f")"
       sudo -u postgres rm -f "$f" 2>/dev/null || true
     done
+  fi
+
+  # --- Early check: warn if too many backups exist ---
+
+  # shellcheck disable=SC2086
+  EXISTING_BACKUPS=($(ls -1 $BACKUP_GLOB 2>/dev/null || true))
+  COUNT=${#EXISTING_BACKUPS[@]}
+
+  if [ "$COUNT" -gt "$BACKUPS_TOKEEP" ]; then
+    TO_REMOVE=$((COUNT - BACKUPS_TOKEEP))
+    LIST_PREVIEW=$(printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | sed 's/^/  - /')
+
+    MSG="Detected $COUNT existing backups in /root.
+  Only the newest $BACKUPS_TOKEEP will be kept — $TO_REMOVE older backup(s) will be deleted.
+
+  Old backups to be removed:
+  ${LIST_PREVIEW}
+
+  Do you want to continue?"
+    
+    if ! whiptail --title "Dispatcharr Backup Warning" --yesno "$MSG" 20 78; then
+      msg_warn "Backup cancelled by user — too many existing backups."
+      exit 0
+    fi
   fi
 
   msg_info "Updating $APP LXC"
