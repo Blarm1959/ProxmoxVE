@@ -79,26 +79,26 @@ function update_script() {
     done
   fi
 
-  # --- Early check: warn if too many backups exist ---
-
-  # shellcheck disable=SC2086
-  EXISTING_BACKUPS=($(ls -1 $BACKUP_GLOB 2>/dev/null || true))
+  # --- Early check: too many existing backups (pre-flight) ---
+  EXISTING_BACKUPS=( $(ls -1 "$BACKUP_GLOB" 2>/dev/null | sort -r || true) )
   COUNT=${#EXISTING_BACKUPS[@]}
 
-  if [ "$COUNT" -gt "$BACKUPS_TOKEEP" ]; then
-    TO_REMOVE=$((COUNT - BACKUPS_TOKEEP))
+  if [ "$COUNT" -ge "$BACKUPS_TOKEEP" ]; then
+    # After creating a new backup, this many will be pruned:
+    TO_REMOVE=$((COUNT - BACKUPS_TOKEEP + 1))
+    # Preview the oldest files that will be removed after the new backup
     LIST_PREVIEW=$(printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | sed 's/^/  - /')
 
     MSG="Detected $COUNT existing backups in /root.
-  Only the newest $BACKUPS_TOKEEP will be kept — $TO_REMOVE older backup(s) will be deleted.
+  A new backup will be created now, then $TO_REMOVE older backup(s) will be deleted
+  to keep only the newest ${BACKUPS_TOKEEP}.
 
-  Old backups to be removed:
+  Backups that would be removed:
   ${LIST_PREVIEW}
 
   Do you want to continue?"
-    
     if ! whiptail --title "Dispatcharr Backup Warning" --yesno "$MSG" 20 78; then
-      msg_warn "Backup cancelled by user — too many existing backups."
+      msg_warn "Backup/update cancelled by user at backup limit check."
       exit 0
     fi
   fi
@@ -147,16 +147,17 @@ function update_script() {
   # Cleanup temp DB dump
   rm -f "${DB_BACKUP_FILE}"
 
-  # Find and sort backups by name (timestamps are in filenames)
-  BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
-  # shellcheck disable=SC2086
-  ALL_BACKUPS=$(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true)
-  OLD_BACKUPS=$(echo "${ALL_BACKUPS}" | tail -n +$((BACKUPS_TOKEEP + 1)) || true)
+  # --- Prune old backups (keep newest N by filename order) ---
+  EXISTING_BACKUPS=( $(ls -1 "$BACKUP_GLOB" 2>/dev/null | sort -r || true) )
+  COUNT=${#EXISTING_BACKUPS[@]}
 
-  if [ -n "${OLD_BACKUPS}" ]; then
-    msg_warn "Found more than ${BACKUPS_TOKEEP} backups — keeping newest ${BACKUPS_TOKEEP}, removing older ones:"
-    echo "${OLD_BACKUPS}" | sed 's/^/  - /'
-    echo "${OLD_BACKUPS}" | xargs -r rm -f
+  if [ "$COUNT" -gt "$BACKUPS_TOKEEP" ]; then
+    TO_REMOVE=$((COUNT - BACKUPS_TOKEEP))
+    LIST_PREVIEW=$(printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | sed 's/^/  - /')
+
+    msg_warn "Found $COUNT existing backups — keeping newest $BACKUPS_TOKEEP and removing $TO_REMOVE older backup(s):"
+    echo "$LIST_PREVIEW"
+    printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | xargs -r rm -f
   fi
 
   msg_ok "Backup Created: ${BACKUP_FILE}"
