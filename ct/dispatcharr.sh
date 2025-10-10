@@ -44,7 +44,8 @@ function update_script() {
   SERVER_IP="$(hostname -I | tr -s ' ' | cut -d' ' -f1)"
 
   DTHHMM="$(date +%F_%H-%M)"
-  BACKUP_FILE="/root/${APP}_${DTHHMM}.tar.gz"
+  BACKUP_STEM=${APP,,}
+  BACKUP_FILE="/root/${BACKUP_STEM}_${DTHHMM}.tar.gz"
   TMP_PGDUMP="/tmp/pgdump"
   DB_BACKUP_FILE="${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump"
   BACKUPS_TOKEEP=3
@@ -122,11 +123,13 @@ function update_script() {
   rm -f "${DB_BACKUP_FILE}"
 
   # Find and sort backups by name (timestamps are in filenames)
+  BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
   ALL_BACKUPS=$(ls -1 "${BACKUP_GLOB}" 2>/dev/null | sort -r || true)
   OLD_BACKUPS=$(echo "${ALL_BACKUPS}" | tail -n +$((BACKUPS_TOKEEP + 1)) || true)
   if [ -n "${OLD_BACKUPS}" ]; then
     msg_warn "Found more than ${BACKUPS_TOKEEP} backups — keeping newest ${BACKUPS_TOKEEP}, removing older ones:"
     echo "${OLD_BACKUPS}" | sed 's/^/  - /'
+    # safe removal
     echo "${OLD_BACKUPS}" | xargs -r rm -f
   fi
 
