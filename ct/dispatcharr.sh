@@ -90,9 +90,13 @@ function update_script() {
 
   # --- Backup important paths and database ---
   msg_info "Creating Backup of current installation"
+
+  # DB dump (custom format for pg_restore)
   [ -d "$TMP_PGDUMP" ] || install -d -m 700 -o postgres -g postgres "$TMP_PGDUMP"
   sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"
   [ -s "${DB_BACKUP_FILE}" ] || { msg_error "Database dump is empty — aborting backup"; exit 1; }
+
+  # Build TAR_* variables (NO /data; exclude rebuildable dirs)
   TAR_OPTS=( -C / --warning=no-file-changed --ignore-failed-read )
   TAR_EXCLUDES=(
     --exclude=opt/dispatcharr/env
@@ -113,11 +117,16 @@ function update_script() {
     "${DB_BACKUP_FILE#/}"
   )
   $STD tar -czf "${BACKUP_FILE}" "${TAR_OPTS[@]}" "${TAR_EXCLUDES[@]}" "${TAR_ITEMS[@]}"
+
+  # Cleanup temp DB dump
   rm -f "${DB_BACKUP_FILE}"
+
+  # Keep only the last N backups (by filename, timestamp suffixed)
   BACKUP_GLOB="/root/${APP}_"'*.tar.gz'
   ALL_BACKUPS=$(ls -1 "${BACKUP_GLOB}" 2>/dev/null | sort -r || true)
   OLD_BACKUPS=$(echo "${ALL_BACKUPS}" | tail -n +$((BACKUPS_TOKEEP + 1)) || true)
   [ -n "${OLD_BACKUPS}" ] && echo "${OLD_BACKUPS}" | xargs -r rm -f
+  
   msg_ok "Backup Created: ${BACKUP_FILE}"
 
   # ====== BEGIN update steps ======
