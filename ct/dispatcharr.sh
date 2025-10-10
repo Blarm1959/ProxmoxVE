@@ -80,7 +80,8 @@ function update_script() {
   fi
 
   # --- Early check: too many existing backups (pre-flight) ---
-  EXISTING_BACKUPS=( $(ls -1 "$BACKUP_GLOB" 2>/dev/null | sort -r || true) )
+  # shellcheck disable=SC2086
+  EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
   COUNT=${#EXISTING_BACKUPS[@]}
 
   if [ "$COUNT" -ge "$BACKUPS_TOKEEP" ]; then
@@ -148,7 +149,8 @@ function update_script() {
   rm -f "${DB_BACKUP_FILE}"
 
   # --- Prune old backups (keep newest N by filename order) ---
-  EXISTING_BACKUPS=( $(ls -1 "$BACKUP_GLOB" 2>/dev/null | sort -r || true) )
+  # shellcheck disable=SC2086
+  EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
   COUNT=${#EXISTING_BACKUPS[@]}
 
   if [ "$COUNT" -gt "$BACKUPS_TOKEEP" ]; then
