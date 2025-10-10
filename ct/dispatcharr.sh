@@ -121,12 +121,15 @@ function update_script() {
   # Cleanup temp DB dump
   rm -f "${DB_BACKUP_FILE}"
 
-  # Keep only the last N backups (by filename, timestamp suffixed)
-  BACKUP_GLOB="/root/${APP}_"'*.tar.gz'
+  # Find and sort backups by name (timestamps are in filenames)
   ALL_BACKUPS=$(ls -1 "${BACKUP_GLOB}" 2>/dev/null | sort -r || true)
   OLD_BACKUPS=$(echo "${ALL_BACKUPS}" | tail -n +$((BACKUPS_TOKEEP + 1)) || true)
-  [ -n "${OLD_BACKUPS}" ] && echo "${OLD_BACKUPS}" | xargs -r rm -f
-  
+  if [ -n "${OLD_BACKUPS}" ]; then
+    msg_warn "Found more than ${BACKUPS_TOKEEP} backups — keeping newest ${BACKUPS_TOKEEP}, removing older ones:"
+    echo "${OLD_BACKUPS}" | sed 's/^/  - /'
+    echo "${OLD_BACKUPS}" | xargs -r rm -f
+  fi
+
   msg_ok "Backup Created: ${BACKUP_FILE}"
 
   # ====== BEGIN update steps ======
