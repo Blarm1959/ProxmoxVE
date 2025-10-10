@@ -104,7 +104,6 @@ function update_script() {
   )
   TAR_ITEMS=(
     "${APP_DIR#/}"
-    data
     "${NGINX_SITE#/}"
     "${NGINX_SITE_ENABLED#/}"
     "${SYSTEMD_DIR#/}/dispatcharr.service"
