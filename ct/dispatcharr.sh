@@ -126,6 +126,10 @@ function update_script() {
   BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
   ALL_BACKUPS=$(ls -1 "${BACKUP_GLOB}" 2>/dev/null | sort -r || true)
   OLD_BACKUPS=$(echo "${ALL_BACKUPS}" | tail -n +$((BACKUPS_TOKEEP + 1)) || true)
+  echo "$BACKUP_GLOB"
+  echo "$ALL_BACKUPS"
+  echo "$OLD_BACKUPS"
+  echo -n "$OLD_BACKUPS"
   if [ -n "${OLD_BACKUPS}" ]; then
     msg_warn "Found more than ${BACKUPS_TOKEEP} backups — keeping newest ${BACKUPS_TOKEEP}, removing older ones:"
     echo "${OLD_BACKUPS}" | sed 's/^/  - /'
