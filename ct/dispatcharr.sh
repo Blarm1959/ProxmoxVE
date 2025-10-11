@@ -80,6 +80,9 @@ function update_script() {
   fi
 
   # --- Early check: too many existing backups (pre-flight) ---
+  BACKUPS_TOKEEP=${BACKUPS_TOKEEP:-3}
+  BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
+
   # shellcheck disable=SC2086
   EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
   COUNT=${#EXISTING_BACKUPS[@]}
@@ -99,7 +102,7 @@ function update_script() {
 
   Do you want to continue?"
     if ! whiptail --title "Dispatcharr Backup Warning" --yesno "$MSG" 20 78; then
-      msg_warn "Backup/update cancelled by user at backup limit check."
+      msg_warn "Backup/update cancelled by user at pre-flight backup limit check."
       exit 0
     fi
   fi
@@ -149,6 +152,9 @@ function update_script() {
   rm -f "${DB_BACKUP_FILE}"
 
   # --- Prune old backups (keep newest N by filename order) ---
+  BACKUPS_TOKEEP=${BACKUPS_TOKEEP:-3}
+  BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
+
   # shellcheck disable=SC2086
   EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
   COUNT=${#EXISTING_BACKUPS[@]}
