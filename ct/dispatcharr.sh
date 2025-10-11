@@ -63,7 +63,8 @@ function update_script() {
   if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
     exit
   fi
-
+  msg_og ""
+  
   # --- Remove any leftover temporary DB dumps (safe cleanup) ---
   if [ -d "$TMP_PGDUMP" ]; then
     shown=0
