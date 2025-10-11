@@ -65,21 +65,6 @@ function update_script() {
   fi
   #spinner left from check_for_gh_release message "New release available ....."
   stop_spinner
-  
-  # --- Remove any leftover temporary DB dumps (safe cleanup) ---
-  if [ -d "$TMP_PGDUMP" ]; then
-    shown=0
-    for f in "$TMP_PGDUMP/${APP}_DB_"*.dump; do
-      # If the glob didn't match anything, skip the literal pattern
-      [ -e "$f" ] || continue
-      if [ "$shown" -eq 0 ]; then
-        msg_warn "Found leftover database dump(s) that may have been included in previous backups — removing:"
-        shown=1
-      fi
-      echo "  - $(basename "$f")"
-      sudo -u postgres rm -f "$f" 2>/dev/null || true
-    done
-  fi
 
   # --- Early check: too many existing backups (pre-flight) ---
   BACKUPS_TOKEEP=${BACKUPS_TOKEEP:-3}
@@ -107,6 +92,21 @@ function update_script() {
       msg_warn "Backup/update cancelled by user at pre-flight backup limit check."
       exit 0
     fi
+  fi
+  
+  # --- Remove any leftover temporary DB dumps (safe cleanup) ---
+  if [ -d "$TMP_PGDUMP" ]; then
+    shown=0
+    for f in "$TMP_PGDUMP/${APP}_DB_"*.dump; do
+      # If the glob didn't match anything, skip the literal pattern
+      [ -e "$f" ] || continue
+      if [ "$shown" -eq 0 ]; then
+        msg_warn "Found leftover database dump(s) that may have been included in previous backups — removing:"
+        shown=1
+      fi
+      echo "  - $(basename "$f")"
+      sudo -u postgres rm -f "$f" 2>/dev/null || true
+    done
   fi
 
   msg_info "Updating $APP LXC"
