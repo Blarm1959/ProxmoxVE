@@ -67,9 +67,6 @@ function update_script() {
   stop_spinner
 
   # --- Early check: too many existing backups (pre-flight) ---
-  BACKUPS_TOKEEP=${BACKUPS_TOKEEP:-3}
-  BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
-
   # shellcheck disable=SC2086
   EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
   COUNT=${#EXISTING_BACKUPS[@]}
@@ -77,7 +74,6 @@ function update_script() {
   if [ "$COUNT" -ge "$BACKUPS_TOKEEP" ]; then
     # After creating a new backup, this many will be pruned:
     TO_REMOVE=$((COUNT - BACKUPS_TOKEEP + 1))
-    # Preview the oldest files that will be removed after the new backup
     LIST_PREVIEW=$(printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | sed 's/^/  - /')
 
     MSG="Detected $COUNT existing backups in /root.
@@ -88,7 +84,7 @@ function update_script() {
   ${LIST_PREVIEW}
 
   Do you want to continue?"
-    if ! whiptail --title "Dispatcharr Backup Warning" --yesno "$MSG" 20 78; then
+    if ! whiptail --title "Dispatcharr Backup Warning" --yesno "$MSG" 20 78 --defaultno; then
       msg_warn "Backup/update cancelled by user at pre-flight backup limit check."
       exit 0
     fi
