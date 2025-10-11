@@ -66,7 +66,7 @@ function update_script() {
   #spinner left from check_for_gh_release message "New release available ....."
   stop_spinner
 
-  # --- Early check: too many existing backups (pre-flight) ---
+  # --- Early check: too many existing backups ---
   # shellcheck disable=SC2086
   EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
   COUNT=${#EXISTING_BACKUPS[@]}
