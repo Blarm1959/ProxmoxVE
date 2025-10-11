@@ -48,8 +48,11 @@ function update_script() {
   BACKUP_FILE="/root/${BACKUP_STEM}_${DTHHMM}.tar.gz"
   TMP_PGDUMP="/tmp/pgdump"
   DB_BACKUP_FILE="${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump"
-  BACKUPS_TOKEEP=3
   BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
+
+  BACKUPS_TOKEEP=${BACKUPS_TOKEEP:-3}
+  BACKUP_CHECK=${BACKUP_CHECK:-Y}
+  BUILD_ONLY=${BUILD_ONLY:-N}
 
   APP_LC=$(echo "${APP,,}" | tr -d ' ')
   VERSION_FILE="$HOME/.${APP_LC}"
@@ -60,54 +63,58 @@ function update_script() {
     exit
   fi
 
-  if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
-    exit
-  fi
-  #spinner left from check_for_gh_release message "New release available ....."
-  stop_spinner
-
-  # --- Early check: too many existing backups ---
-  # shellcheck disable=SC2086
-  EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
-  COUNT=${#EXISTING_BACKUPS[@]}
-
-  if [ "$COUNT" -ge "$BACKUPS_TOKEEP" ]; then
-    # After creating a new backup, this many will be pruned:
-    TO_REMOVE=$((COUNT - BACKUPS_TOKEEP + 1))
-    LIST_PREVIEW=$(printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | sed 's/^/  - /')
-
-    MSG="Detected $COUNT existing backups in /root.
-  A new backup will be created now, then $TO_REMOVE older backup(s) will be deleted
-  to keep only the newest ${BACKUPS_TOKEEP}.
-
-  Backups that would be removed:
-  ${LIST_PREVIEW}
-
-  Do you want to continue?"
-    if ! whiptail --title "Dispatcharr Backup Warning" --yesno "$MSG" 20 78 --defaultno; then
-      msg_warn "Backup/update cancelled by user at pre-flight backup limit check."
-      exit 0
+  if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
+    if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
+      exit
     fi
-  fi
-  
-  # --- Remove any leftover temporary DB dumps (safe cleanup) ---
-  if [ -d "$TMP_PGDUMP" ]; then
-    shown=0
-    for f in "$TMP_PGDUMP/${APP}_DB_"*.dump; do
-      # If the glob didn't match anything, skip the literal pattern
-      [ -e "$f" ] || continue
-      if [ "$shown" -eq 0 ]; then
-        msg_warn "Found leftover database dump(s) that may have been included in previous backups — removing:"
-        shown=1
-      fi
-      echo "  - $(basename "$f")"
-      sudo -u postgres rm -f "$f" 2>/dev/null || true
-    done
-  fi
+    #spinner left from check_for_gh_release message "New release available ....."
+    stop_spinner
 
-  msg_info "Updating $APP LXC"
-  $STD bash -c 'DEBIAN_FRONTEND=noninteractive apt-get update && apt-get -y upgrade'
-  msg_ok "Updated $APP LXC"
+    if ! [[ "$BACKUP_CHECK" == "N" || "$BACKUP_CHECK" == "n" ]]; then
+      # --- Early check: too many existing backups ---
+      # shellcheck disable=SC2086
+      EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
+      COUNT=${#EXISTING_BACKUPS[@]}
+
+      if [ "$COUNT" -ge "$BACKUPS_TOKEEP" ]; then
+        # After creating a new backup, this many will be pruned:
+        TO_REMOVE=$((COUNT - BACKUPS_TOKEEP + 1))
+        LIST_PREVIEW=$(printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | sed 's/^/  - /')
+
+        MSG="Detected $COUNT existing backups in /root.
+      A new backup will be created now, then $TO_REMOVE older backup(s) will be deleted
+      to keep only the newest ${BACKUPS_TOKEEP}.
+
+      Backups that would be removed:
+      ${LIST_PREVIEW}
+
+      Do you want to continue?"
+        if ! whiptail --title "Dispatcharr Backup Warning" --yesno "$MSG" 20 78 --defaultno; then
+          msg_warn "Backup/update cancelled by user at pre-flight backup limit check."
+          exit 0
+        fi
+      fi
+    fi
+
+    # --- Remove any leftover temporary DB dumps (safe cleanup) ---
+    if [ -d "$TMP_PGDUMP" ]; then
+      shown=0
+      for f in "$TMP_PGDUMP/${APP}_DB_"*.dump; do
+        # If the glob didn't match anything, skip the literal pattern
+        [ -e "$f" ] || continue
+        if [ "$shown" -eq 0 ]; then
+          msg_warn "Found leftover database dump(s) that may have been included in previous backups — removing:"
+          shown=1
+        fi
+        echo "  - $(basename "$f")"
+        sudo -u postgres rm -f "$f" 2>/dev/null || true
+      done
+    fi
+  
+    msg_info "Updating $APP LXC"
+    $STD bash -c 'DEBIAN_FRONTEND=noninteractive apt-get update && apt-get -y upgrade'
+    msg_ok "Updated $APP LXC"
+  fi
 
   msg_info "Stopping services for $APP"
   systemctl stop dispatcharr-celery
@@ -116,67 +123,68 @@ function update_script() {
   systemctl stop dispatcharr
   msg_ok "Services stopped for $APP"
 
-  # --- Backup important paths and database ---
-  msg_info "Creating Backup of current installation"
+  if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
+    # --- Backup important paths and database ---
+    msg_info "Creating Backup of current installation"
 
-  # DB dump (custom format for pg_restore)
-  [ -d "$TMP_PGDUMP" ] || install -d -m 700 -o postgres -g postgres "$TMP_PGDUMP"
-  sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"
-  [ -s "${DB_BACKUP_FILE}" ] || { msg_error "Database dump is empty — aborting backup"; exit 1; }
+    # DB dump (custom format for pg_restore)
+    [ -d "$TMP_PGDUMP" ] || install -d -m 700 -o postgres -g postgres "$TMP_PGDUMP"
+    sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"
+    [ -s "${DB_BACKUP_FILE}" ] || { msg_error "Database dump is empty — aborting backup"; exit 1; }
 
-  # Build TAR_* variables (NO /data; exclude rebuildable dirs)
-  TAR_OPTS=( -C / --warning=no-file-changed --ignore-failed-read )
-  TAR_EXCLUDES=(
-    --exclude=opt/dispatcharr/env
-    --exclude=opt/dispatcharr/env/**
-    --exclude=opt/dispatcharr/frontend
-    --exclude=opt/dispatcharr/frontend/**
-    --exclude=opt/dispatcharr/static
-    --exclude=opt/dispatcharr/static/**
-  )
-  TAR_ITEMS=(
-    "${APP_DIR#/}"
-    "${NGINX_SITE#/}"
-    "${NGINX_SITE_ENABLED#/}"
-    "${SYSTEMD_DIR#/}/dispatcharr.service"
-    "${SYSTEMD_DIR#/}/dispatcharr-celery.service"
-    "${SYSTEMD_DIR#/}/dispatcharr-celerybeat.service"
-    "${SYSTEMD_DIR#/}/dispatcharr-daphne.service"
-    "${DB_BACKUP_FILE#/}"
-  )
-  $STD tar -czf "${BACKUP_FILE}" "${TAR_OPTS[@]}" "${TAR_EXCLUDES[@]}" "${TAR_ITEMS[@]}"
+    # Build TAR_* variables (NO /data; exclude rebuildable dirs)
+    TAR_OPTS=( -C / --warning=no-file-changed --ignore-failed-read )
+    TAR_EXCLUDES=(
+      --exclude=opt/dispatcharr/env
+      --exclude=opt/dispatcharr/env/**
+      --exclude=opt/dispatcharr/frontend
+      --exclude=opt/dispatcharr/frontend/**
+      --exclude=opt/dispatcharr/static
+      --exclude=opt/dispatcharr/static/**
+    )
+    TAR_ITEMS=(
+      "${APP_DIR#/}"
+      "${NGINX_SITE#/}"
+      "${NGINX_SITE_ENABLED#/}"
+      "${SYSTEMD_DIR#/}/dispatcharr.service"
+      "${SYSTEMD_DIR#/}/dispatcharr-celery.service"
+      "${SYSTEMD_DIR#/}/dispatcharr-celerybeat.service"
+      "${SYSTEMD_DIR#/}/dispatcharr-daphne.service"
+      "${DB_BACKUP_FILE#/}"
+    )
+    $STD tar -czf "${BACKUP_FILE}" "${TAR_OPTS[@]}" "${TAR_EXCLUDES[@]}" "${TAR_ITEMS[@]}"
 
-  # Cleanup temp DB dump
-  rm -f "${DB_BACKUP_FILE}"
+    # Cleanup temp DB dump
+    rm -f "${DB_BACKUP_FILE}"
 
-  # --- Prune old backups (keep newest N by filename order) ---
-  BACKUPS_TOKEEP=${BACKUPS_TOKEEP:-3}
-  BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
+    if ! [[ "$BACKUP_CHECK" == "N" || "$BACKUP_CHECK" == "n" ]]; then
+      # --- Prune old backups (keep newest N by filename order) ---
+      # shellcheck disable=SC2086
+      EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
+      COUNT=${#EXISTING_BACKUPS[@]}
 
-  # shellcheck disable=SC2086
-  EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
-  COUNT=${#EXISTING_BACKUPS[@]}
+      if [ "$COUNT" -gt "$BACKUPS_TOKEEP" ]; then
+        TO_REMOVE=$((COUNT - BACKUPS_TOKEEP))
+        LIST_PREVIEW=$(printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | sed 's/^/  - /')
 
-  if [ "$COUNT" -gt "$BACKUPS_TOKEEP" ]; then
-    TO_REMOVE=$((COUNT - BACKUPS_TOKEEP))
-    LIST_PREVIEW=$(printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | sed 's/^/  - /')
+        msg_warn "Found $COUNT existing backups — keeping newest $BACKUPS_TOKEEP and removing $TO_REMOVE older backup(s):"
+        echo "$LIST_PREVIEW"
+        printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | xargs -r rm -f
+      fi
+    fi
 
-    msg_warn "Found $COUNT existing backups — keeping newest $BACKUPS_TOKEEP and removing $TO_REMOVE older backup(s):"
-    echo "$LIST_PREVIEW"
-    printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | xargs -r rm -f
+    msg_ok "Backup Created: ${BACKUP_FILE}"
+
+    # ====== BEGIN update steps ======
+
+    # Fetch latest release into APP_DIR (PVE Helper tools.func)
+    msg_info "Fetching latest Dispatcharr release"
+    fetch_and_deploy_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"
+    $STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
+    CURRENT_VERSION=""
+    [[ -f "$VERSION_FILE" ]] && CURRENT_VERSION=$(<"$VERSION_FILE")
+    msg_ok "Release deployed"
   fi
-
-  msg_ok "Backup Created: ${BACKUP_FILE}"
-
-  # ====== BEGIN update steps ======
-
-  # Fetch latest release into APP_DIR (PVE Helper tools.func)
-  msg_info "Fetching latest Dispatcharr release"
-  fetch_and_deploy_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"
-  $STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
-  CURRENT_VERSION=""
-  [[ -f "$VERSION_FILE" ]] && CURRENT_VERSION=$(<"$VERSION_FILE")
-  msg_ok "Release deployed"
 
   # Ensure required runtime dirs inside $APP_DIR (in case clean unpack removed them)
   msg_info "Ensuring runtime directories in APP_DIR"
@@ -217,11 +225,13 @@ function update_script() {
   ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
   msg_ok "Python environment refreshed"
 
-  # Run Django migrations (one-liner, PVEH-friendly)
-  msg_info "Running Django migrations"
-  $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
-  msg_ok "Django migrations complete"
-
+  if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
+    # Run Django migrations (one-liner, PVEH-friendly)
+    msg_info "Running Django migrations"
+    $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
+    msg_ok "Django migrations complete"
+  fi
+  
   # Restart services
   msg_info "Restarting services"
   $STD systemctl daemon-reload || true
