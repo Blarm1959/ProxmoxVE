@@ -65,22 +65,22 @@ function update_script() {
   BACKUP_CHECK="$DEFAULT_BACKUP_CHECK"
   BACKUPS_TOKEEP="$DEFAULT_BACKUPS_TOKEEP"
 
-  ADVANCED=${ADVANCED:-N}
-echo "ADVANED0=$ADVANCED"
+  BXADVANCED=${BXADVANCED:-N}
+echo "ADVANED0=$BXADVANCED"
 
   # Check if installation is present
   if [[ ! -d "$APP_DIR" ]]; then
     msg_error "No ${APP} Installation Found!"
     exit
   fi
-echo "ADVANED1=$ADVANCED"
+echo "ADVANED1=$BXADVANCED"
 
   # If BUILD_ONLY is Y/y, override and disable Advanced Mode
   if [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
     ADVANCED="N"
   fi
 
-echo "ADVANED2=$ADVANCED"
+echo "ADVANED2=$BXADVANCED"
 if [[ 1 == 1 ]] ; then exit 0 ; fi
 
   if [[ "$ADVANCED" == "Y" || "$ADVANCED" == "y" ]]; then
