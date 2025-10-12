@@ -160,19 +160,16 @@ function update_script() {
     if ! [[ "$BACKUP_CHECK" == "N" || "$BACKUP_CHECK" == "n" ]]; then
       # --- Prune old backups (keep newest N by filename order) ---
       # shellcheck disable=SC2086
-      EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
-      COUNT=${#EXISTING_BACKUPS[@]}
-
+      ALL_BACKUPS="$(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true)"
+      COUNT="$(printf '%s\n' "$ALL_BACKUPS" | sed '/^$/d' | wc -l)"
       if [ "$COUNT" -gt "$BACKUPS_TOKEEP" ]; then
         TO_REMOVE=$((COUNT - BACKUPS_TOKEEP))
-        LIST_PREVIEW=$(printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | sed 's/^/  - /')
-
+        OLD_BACKUPS="$(printf '%s\n' "$ALL_BACKUPS" | tail -n "$TO_REMOVE")"
         msg_warn "Found $COUNT existing backups — keeping newest $BACKUPS_TOKEEP and removing $TO_REMOVE older backup(s):"
-        echo "$LIST_PREVIEW"
-        printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | xargs -r rm -f
+        printf '%s\n' "$OLD_BACKUPS" | sed 's/^/ - /'
+        printf '%s\n' "$OLD_BACKUPS" | xargs -r rm -f
       fi
     fi
-
     msg_ok "Backup Created: ${BACKUP_FILE}"
 
     # ====== BEGIN update steps ======
