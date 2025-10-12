@@ -78,7 +78,7 @@ function update_script() {
     ADVANCED="N"
   fi
 
-echo "ADVANED=$ADVANCED"
+echo "ADVANED=sss"
 if [[ 1 == 1 ]] ; then exit 0 ; fi
 
   if [[ "$ADVANCED" == "Y" || "$ADVANCED" == "y" ]]; then
