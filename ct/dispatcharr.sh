@@ -61,39 +61,34 @@ function update_script() {
   # BUILD_ONLY may be overridden on the command line
   BUILD_ONLY=${BUILD_ONLY:-$DEFAULT_BUILD_ONLY}
 
-  # These must IGNORE CLI env overrides unless ADVANCED=Y is used
+  # These must IGNORE CLI env overrides unless OVERRIDE=Y is used
   BACKUP_CHECK="$DEFAULT_BACKUP_CHECK"
   BACKUPS_TOKEEP="$DEFAULT_BACKUPS_TOKEEP"
-echo "ADVANEDY=$ADVANCED"
-  BXADVANCED=${BXADVANCED:-N}
-echo "ADVANED0=$BXADVANCED"
+
+  OVERRIDE=${OVERRIDE:-N}
 
   # Check if installation is present
   if [[ ! -d "$APP_DIR" ]]; then
     msg_error "No ${APP} Installation Found!"
     exit
   fi
-echo "ADVANED1=$BXADVANCED"
 
-  # If BUILD_ONLY is Y/y, override and disable Advanced Mode
+  # If BUILD_ONLY is Y/y, override and disable Override Mode
   if [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
-    ADVANCED="N"
+    OVERRIDE="N"
   fi
 
-echo "ADVANED2=$BXADVANCED"
-if [[ 1 == 1 ]] ; then exit 0 ; fi
-
-  if [[ "$ADVANCED" == "Y" || "$ADVANCED" == "y" ]]; then
+  if [[ "$OVERRIDE" == "Y" || "$OVERRIDE" == "y" ]]; then
     # Ask interactively for BACKUP_CHECK
-    BACKUP_CHECK=$(whiptail --inputbox "Enter BACKUP_CHECK value (Y/N)" 8 60 "$DEFAULT_BACKUP_CHECK" --title "Advanced Mode" 3>&1 1>&2 2>&3) || {
-      msg_warn "Advanced input cancelled — using default BACKUP_CHECK=$DEFAULT_BACKUP_CHECK"
+    BACKUP_CHECK=$(whiptail --inputbox "Enter BACKUP_CHECK value (Y/N)" 8 60 "$DEFAULT_BACKUP_CHECK" --title "Override Mode" 3>&1 1>&2 2>&3) || {
+      msg_warn "Override input cancelled — using default BACKUP_CHECK=$DEFAULT_BACKUP_CHECK"
       BACKUP_CHECK="$DEFAULT_BACKUP_CHECK"
     }
 
     # If BACKUP_CHECK is not N/n, ask for BACKUPS_TOKEEP (must be >0)
     if ! [[ "$BACKUP_CHECK" == "N" || "$BACKUP_CHECK" == "n" ]]; then
-      BACKUPS_TOKEEP=$(whiptail --inputbox "Enter BACKUPS_TOKEEP (number > 0)" 8 60 "$DEFAULT_BACKUPS_TOKEEP" --title "Advanced Mode" 3>&1 1>&2 2>&3) || {
-        msg_warn "Advanced input cancelled — using default BACKUPS_TOKEEP=$DEFAULT_BACKUPS_TOKEEP"
+      BACKUPS_TOKEEP=$(whiptail --inputbox "Enter BACKUPS_TOKEEP (number > 0)" 8 60 "$DEFAULT_BACKUPS_TOKEEP" --title "Override Mode" 3>&1 1>&2 2>&3) || {
+        msg_warn "Override input cancelled — using default BACKUPS_TOKEEP=$DEFAULT_BACKUPS_TOKEEP"
         BACKUPS_TOKEEP="$DEFAULT_BACKUPS_TOKEEP"
       }
       if ! [[ "$BACKUPS_TOKEEP" =~ ^[0-9]+$ ]] || [ "$BACKUPS_TOKEEP" -le 0 ]; then
