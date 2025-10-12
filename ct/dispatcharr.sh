@@ -64,7 +64,7 @@ function update_script() {
   # These must IGNORE CLI env overrides unless ADVANCED=Y is used
   BACKUP_CHECK="$DEFAULT_BACKUP_CHECK"
   BACKUPS_TOKEEP="$DEFAULT_BACKUPS_TOKEEP"
-
+echo "ADVANEDY=$ADVANCED"
   BXADVANCED=${BXADVANCED:-N}
 echo "ADVANED0=$BXADVANCED"
 
