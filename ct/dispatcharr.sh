@@ -24,10 +24,18 @@ function update_script() {
   check_container_storage
   check_container_resources
 
+  # Application location
+  APP_DIR="/opt/dispatcharr"
+
+  # Check if installation is present
+  if [[ ! -d "$APP_DIR" ]]; then
+    msg_error "No ${APP} Installation Found!"
+    exit
+  fi
+
   # Variables
   DISPATCH_USER="dispatcharr"
   DISPATCH_GROUP="dispatcharr"
-  APP_DIR="/opt/dispatcharr"
 
   POSTGRES_DB="dispatcharr"
   POSTGRES_USER="dispatch"
@@ -67,34 +75,40 @@ function update_script() {
 
   OVERRIDE=${OVERRIDE:-N}
 
-  # Check if installation is present
-  if [[ ! -d "$APP_DIR" ]]; then
-    msg_error "No ${APP} Installation Found!"
-    exit
-  fi
-
   # If BUILD_ONLY is Y/y, override and disable Override Mode
   if [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
     OVERRIDE="N"
   fi
 
   if [[ "$OVERRIDE" == "Y" || "$OVERRIDE" == "y" ]]; then
-    # Ask interactively for BACKUP_CHECK
-    BACKUP_CHECK=$(whiptail --inputbox "Enter BACKUP_CHECK value (Y/N)" 8 60 "$DEFAULT_BACKUP_CHECK" --title "Override Mode" 3>&1 1>&2 2>&3) || {
-      msg_warn "Override input cancelled — using default BACKUP_CHECK=$DEFAULT_BACKUP_CHECK"
-      BACKUP_CHECK="$DEFAULT_BACKUP_CHECK"
-    }
-
-    # If BACKUP_CHECK is not N/n, ask for BACKUPS_TOKEEP (must be >0)
-    if ! [[ "$BACKUP_CHECK" == "N" || "$BACKUP_CHECK" == "n" ]]; then
-      BACKUPS_TOKEEP=$(whiptail --inputbox "Enter BACKUPS_TOKEEP (number > 0)" 8 60 "$DEFAULT_BACKUPS_TOKEEP" --title "Override Mode" 3>&1 1>&2 2>&3) || {
-        msg_warn "Override input cancelled — using default BACKUPS_TOKEEP=$DEFAULT_BACKUPS_TOKEEP"
-        BACKUPS_TOKEEP="$DEFAULT_BACKUPS_TOKEEP"
+    # --- Loop for BACKUP_CHECK ---
+    while true; do
+      BACKUP_CHECK=$(whiptail --inputbox "Enter BACKUP_CHECK value (Y/N)" 8 60 "$DEFAULT_BACKUP_CHECK" --title "Override Mode" 3>&1 1>&2 2>&3) || {
+        msg_warn "Override input cancelled — using default BACKUP_CHECK=$DEFAULT_BACKUP_CHECK"
+        BACKUP_CHECK="$DEFAULT_BACKUP_CHECK"
+        break
       }
-      if ! [[ "$BACKUPS_TOKEEP" =~ ^[0-9]+$ ]] || [ "$BACKUPS_TOKEEP" -le 0 ]; then
-        msg_warn "Invalid input — reverting to default BACKUPS_TOKEEP=$DEFAULT_BACKUPS_TOKEEP"
-        BACKUPS_TOKEEP="$DEFAULT_BACKUPS_TOKEEP"
+      if [[ "$BACKUP_CHECK" =~ ^[YyNn]$ ]]; then
+        break
+      else
+        whiptail --msgbox "Invalid input. Please enter Y or N." 8 50 --title "Invalid Entry"
       fi
+    done
+
+    # --- Loop for BACKUPS_TOKEEP (only if BACKUP_CHECK not N/n) ---
+    if ! [[ "$BACKUP_CHECK" == "N" || "$BACKUP_CHECK" == "n" ]]; then
+      while true; do
+        BACKUPS_TOKEEP=$(whiptail --inputbox "Enter BACKUPS_TOKEEP (number > 0)" 8 60 "$DEFAULT_BACKUPS_TOKEEP" --title "Override Mode" 3>&1 1>&2 2>&3) || {
+          msg_warn "Override input cancelled — using default BACKUPS_TOKEEP=$DEFAULT_BACKUPS_TOKEEP"
+          BACKUPS_TOKEEP="$DEFAULT_BACKUPS_TOKEEP"
+          break
+        }
+        if [[ "$BACKUPS_TOKEEP" =~ ^[0-9]+$ ]] && [ "$BACKUPS_TOKEEP" -gt 0 ]; then
+          break
+        else
+          whiptail --msgbox "Invalid input. Please enter a positive number." 8 60 --title "Invalid Entry"
+        fi
+      done
     fi
   fi
 
