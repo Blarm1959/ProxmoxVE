@@ -78,6 +78,9 @@ function update_script() {
     ADVANCED="N"
   fi
 
+echo "ADVANED=$ADVANCED"
+if [[ 1 == 1 ]] ; then exit 0 ; fi
+
   if [[ "$ADVANCED" == "Y" || "$ADVANCED" == "y" ]]; then
     # Ask interactively for BACKUP_CHECK
     BACKUP_CHECK=$(whiptail --inputbox "Enter BACKUP_CHECK value (Y/N)" 8 60 "$DEFAULT_BACKUP_CHECK" --title "Advanced Mode" 3>&1 1>&2 2>&3) || {
