@@ -63,6 +63,10 @@ function update_script() {
     exit
   fi
 
+  if [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
+    msg_warn "BUILD_ONLY fast path enabled — skipping release check, apt upgrade, backup/prune, and Django migrations."
+  fi
+
   if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
     if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
       exit
@@ -233,7 +237,9 @@ function update_script() {
   msg_info "Restarting services"
   $STD systemctl daemon-reload || true
   $STD systemctl restart dispatcharr dispatcharr-celery dispatcharr-celerybeat dispatcharr-daphne || true
-  $STD systemctl reload nginx 2>/dev/null || true
+  if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
+    $STD systemctl reload nginx 2>/dev/null || true
+  fi
   msg_ok "Services restarted"
 
   # ====== END update steps ======
