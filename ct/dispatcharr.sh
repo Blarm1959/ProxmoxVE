@@ -33,6 +33,33 @@ function update_script() {
     exit
   fi
 
+  # Defaults for optional overrides
+  DEFAULT_BACKUPS_TOKEEP=3
+  DEFAULT_BACKUP_CHECK=Y
+  DEFAULT_BUILD_ONLY=N
+
+  # BUILD_ONLY may be overridden on the command line
+  BUILD_ONLY=${BUILD_ONLY:-$DEFAULT_BUILD_ONLY}
+
+  # These must IGNORE CLI env overrides unless OVERRIDE=Y is used
+  BACKUP_CHECK="$DEFAULT_BACKUP_CHECK"
+  BACKUPS_TOKEEP="$DEFAULT_BACKUPS_TOKEEP"
+
+  OVERRIDE=${OVERRIDE:-N}
+
+  # If BUILD_ONLY is Y/y, override and disable Override Mode
+  if [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
+    OVERRIDE="N"
+  fi
+  
+  if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
+    if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
+      exit
+    fi
+    #spinner left from check_for_gh_release message "New release available ....."
+    stop_spinner
+  fi
+
   # Variables
   DISPATCH_USER="dispatcharr"
   DISPATCH_GROUP="dispatcharr"
@@ -60,25 +87,6 @@ function update_script() {
 
   APP_LC=$(echo "${APP,,}" | tr -d ' ')
   VERSION_FILE="$HOME/.${APP_LC}"
-
-  # Defaults for optional overrides
-  DEFAULT_BACKUPS_TOKEEP=3
-  DEFAULT_BACKUP_CHECK=Y
-  DEFAULT_BUILD_ONLY=N
-
-  # BUILD_ONLY may be overridden on the command line
-  BUILD_ONLY=${BUILD_ONLY:-$DEFAULT_BUILD_ONLY}
-
-  # These must IGNORE CLI env overrides unless OVERRIDE=Y is used
-  BACKUP_CHECK="$DEFAULT_BACKUP_CHECK"
-  BACKUPS_TOKEEP="$DEFAULT_BACKUPS_TOKEEP"
-
-  OVERRIDE=${OVERRIDE:-N}
-
-  # If BUILD_ONLY is Y/y, override and disable Override Mode
-  if [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
-    OVERRIDE="N"
-  fi
 
   if [[ "$OVERRIDE" == "Y" || "$OVERRIDE" == "y" ]]; then
     # --- Loop for BACKUP_CHECK ---
@@ -117,12 +125,6 @@ function update_script() {
   fi
 
   if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
-    if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
-      exit
-    fi
-    #spinner left from check_for_gh_release message "New release available ....."
-    stop_spinner
-
     if ! [[ "$BACKUP_CHECK" == "N" || "$BACKUP_CHECK" == "n" ]]; then
       # --- Early check: too many existing backups ---
       # shellcheck disable=SC2086
