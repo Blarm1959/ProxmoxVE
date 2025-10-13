@@ -240,8 +240,8 @@ function update_script() {
 
   # Ensure required runtime dirs inside $APP_DIR (in case clean unpack removed them)
   msg_info "Ensuring runtime directories in APP_DIR"
-  mkdir -p "${APP_DIR}/static" "${APP_DIR}/media"
-  chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "${APP_DIR}/static" "${APP_DIR}/media"
+  install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" "${APP_DIR}/static"
+  install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" "${APP_DIR}/media"
   msg_ok "Runtime directories ensured"
 
   # Rebuild frontend (clean)
