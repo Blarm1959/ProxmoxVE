@@ -41,15 +41,15 @@ function update_script() {
   # BUILD_ONLY may be overridden on the command line
   BUILD_ONLY=${BUILD_ONLY:-$DEFAULT_BUILD_ONLY}
 
-  # These must IGNORE CLI env overrides unless OVERRIDE=Y is used
+  # These must IGNORE CLI env overrides unless GUI=Y is used
   BACKUP_CHECK="$DEFAULT_BACKUP_CHECK"
   BACKUPS_TOKEEP="$DEFAULT_BACKUPS_TOKEEP"
 
-  OVERRIDE=${OVERRIDE:-N}
+  GUI=${GUI:-N}
 
-  # If BUILD_ONLY is Y/y, override and disable Override Mode
+  # If BUILD_ONLY is Y/y, override and disable GUI Mode
   if [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
-    OVERRIDE="N"
+    GUI="N"
   fi
   
   if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
@@ -88,11 +88,11 @@ function update_script() {
   APP_LC=$(echo "${APP,,}" | tr -d ' ')
   VERSION_FILE="$HOME/.${APP_LC}"
 
-  if [[ "$OVERRIDE" == "Y" || "$OVERRIDE" == "y" ]]; then
+  if [[ "$GUI" == "Y" || "$GUI" == "y" ]]; then
     # --- Loop for BACKUP_CHECK ---
     while true; do
-      BACKUP_CHECK=$(whiptail --inputbox "Enter BACKUP_CHECK value (Y/N)" 8 60 "$DEFAULT_BACKUP_CHECK" --title "Override Mode" 3>&1 1>&2 2>&3) || {
-        msg_warn "Override input cancelled — using default BACKUP_CHECK=$DEFAULT_BACKUP_CHECK"
+      BACKUP_CHECK=$(whiptail --inputbox "Enter BACKUP_CHECK value (Y/N)" 8 60 "$DEFAULT_BACKUP_CHECK" --title "GUI Mode" 3>&1 1>&2 2>&3) || {
+        msg_warn "GUI input cancelled — using default BACKUP_CHECK=$DEFAULT_BACKUP_CHECK"
         BACKUP_CHECK="$DEFAULT_BACKUP_CHECK"
         break
       }
@@ -106,8 +106,8 @@ function update_script() {
     # --- Loop for BACKUPS_TOKEEP (only if BACKUP_CHECK not N/n) ---
     if ! [[ "$BACKUP_CHECK" == "N" || "$BACKUP_CHECK" == "n" ]]; then
       while true; do
-        BACKUPS_TOKEEP=$(whiptail --inputbox "Enter BACKUPS_TOKEEP (number > 0)" 8 60 "$DEFAULT_BACKUPS_TOKEEP" --title "Override Mode" 3>&1 1>&2 2>&3) || {
-          msg_warn "Override input cancelled — using default BACKUPS_TOKEEP=$DEFAULT_BACKUPS_TOKEEP"
+        BACKUPS_TOKEEP=$(whiptail --inputbox "Enter BACKUPS_TOKEEP (number > 0)" 8 60 "$DEFAULT_BACKUPS_TOKEEP" --title "GUI Mode" 3>&1 1>&2 2>&3) || {
+          msg_warn "GUI input cancelled — using default BACKUPS_TOKEEP=$DEFAULT_BACKUPS_TOKEEP"
           BACKUPS_TOKEEP="$DEFAULT_BACKUPS_TOKEEP"
           break
         }
