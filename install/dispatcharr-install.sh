@@ -96,18 +96,20 @@ export UV_INDEX_STRATEGY="unsafe-best-match"
 $STD runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; uv venv --seed env || uv venv env'
 
 # Build a filtered requirements without uWSGI
-runuser -u "$DISPATCH_USER" -- bash -c '
-  cd "'"${APP_DIR}"'"
-  REQ=requirements.txt
-  REQF=requirements.nouwsgi.txt
-  if [ -f "$REQ" ]; then
-    if grep -qiE "^\s*uwsgi(\b|[<>=~])" "$REQ"; then
-      sed -E "/^\s*uwsgi(\b|[<>=~]).*/Id" "$REQ" > "$REQF"
-    else
-      cp "$REQ" "$REQF"
-    fi
+# Ensure APP_DIR is visible to the child shell
+runuser -u "$DISPATCH_USER" -- env APP_DIR="$APP_DIR" bash -s <<'BASH'
+set -e
+cd "$APP_DIR"
+REQ=requirements.txt
+REQF=requirements.nouwsgi.txt
+if [ -f "$REQ" ]; then
+  if grep -qiE '^\s*uwsgi(\b|[<>=~])' "$REQ"; then
+    sed -E '/^\s*uwsgi(\b|[<>=~]).*/Id' "$REQ" > "$REQF"
+  else
+    cp "$REQ" "$REQF"
   fi
-'
+fi
+BASH
 
 runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q -r requirements.nouwsgi.txt'
 runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q gunicorn'
@@ -120,9 +122,15 @@ sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}/frontend\"; if [ -f package-lo
 $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
 msg_ok "Frontend built"
 
-msg_info "Creating application data directory"
+msg_info "Creating application directories"
 install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" /data
-msg_ok "Application data directory ready"
+install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" \
+  /data/m3us /data/epgs /data/logos \
+  /data/uploads/m3us /data/uploads/epgs \
+  /data/recordings /data/plugins
+install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" \
+  "${APP_DIR}/logo_cache" "${APP_DIR}/media"
+msg_ok "Application directories ready"
 
 msg_info "Running Django migrations and collectstatic"
 $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
