@@ -239,10 +239,10 @@ function update_script() {
   fi
 
   # Ensure required runtime dirs inside $APP_DIR (in case clean unpack removed them)
-  msg_info "Ensuring runtime directories in APP_DIR"
-  install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" "${APP_DIR}/static"
-  install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" "${APP_DIR}/media"
-  msg_ok "Runtime directories ensured"
+  #msg_info "Ensuring runtime directories in APP_DIR"
+  #install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" "${APP_DIR}/static"
+  #install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" "${APP_DIR}/media"
+  #msg_ok "Runtime directories ensured"
 
   # Rebuild frontend (clean)
   msg_info "Rebuilding frontend"
@@ -278,7 +278,7 @@ function update_script() {
   msg_ok "Python environment refreshed"
 
   if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
-    # Run Django migrations (one-liner, PVEH-friendly)
+    # Run Django migrations
     msg_info "Running Django migrations"
     $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
     msg_ok "Django migrations complete"
