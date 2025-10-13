@@ -62,8 +62,7 @@ fi
 if ! id -u "$DISPATCH_USER" >/dev/null 2>&1; then
   $STD useradd -m -g "$DISPATCH_GROUP" -s /bin/bash "$DISPATCH_USER"
 fi
-mkdir -p "$APP_DIR"
-chown "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
+install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" "$APP_DIR"
 msg_ok "User and directories ready"
 
 msg_info "Installing Node.js (tools.func)"
