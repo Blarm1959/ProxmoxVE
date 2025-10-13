@@ -121,7 +121,7 @@ function update_script() {
   fi
 
   if [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
-    msg_warn "BUILD_ONLY fast path enabled — skipping release check, apt upgrade, backup/prune, and Django migrations."
+    msg_warn "BUILD_ONLY — skipping release check, apt upgrade, backup/prune, and Django migrations."
   fi
 
   if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
