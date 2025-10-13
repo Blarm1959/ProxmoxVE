@@ -238,12 +238,6 @@ function update_script() {
     msg_ok "Release deployed"
   fi
 
-  # Ensure required runtime dirs inside $APP_DIR (in case clean unpack removed them)
-  #msg_info "Ensuring runtime directories in APP_DIR"
-  #install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" "${APP_DIR}/static"
-  #install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" "${APP_DIR}/media"
-  #msg_ok "Runtime directories ensured"
-
   # Rebuild frontend (clean)
   msg_info "Rebuilding frontend"
   sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}/frontend\"; rm -rf node_modules .cache dist build .next || true"
