@@ -59,14 +59,6 @@ function update_script() {
   # ============================================================================
   DOPTS=${DOPTS:-N}
   DOPTS_UPPER="$(printf '%s' "$DOPTS" | tr '[:lower:]' '[:upper:]')"
-  
-  if ! [[ "$DOPTS_UPPER" == "FV" || "$DOPTS_UPPER" == "BO" ]]; then
-    if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
-      exit
-    fi
-    #spinner left from check_for_gh_release message "New release available ....."
-    stop_spinner
-  fi
 
   # Unified backup retention setting
   DEFAULT_BACKUP_RETENTION=3                 # keep newest N backups by default
@@ -90,12 +82,9 @@ function update_script() {
   fi
 
   # If force-version or build-only, we won't prompt or touch backups/version here
-  echo "BX1-$DOPTS_UPPER"
   if ! [[ "$DOPTS_UPPER" == "FV" || "$DOPTS_UPPER" == "BO" ]]; then
-    echo "BX2-$DOPTS_UPPER"
     # DOPTS=BR → prompt retention, save file, and ask whether to continue
     if [[ "$DOPTS_UPPER" == "BR" || ! -f "$VARS_FILE" ]]; then
-      echo "BX3-$DOPTS_UPPER"
       while true; do
         ans=$(whiptail --inputbox "Backup retention:\n\n• Enter 'ALL' to keep all backups (no pruning)\n• Or enter a number > 0 to keep only the newest N backups" 12 70 "$BACKUP_RETENTION" --title "Dispatcharr Options: Backup Retention" 3>&1 1>&2 2>&3) || {
           msg_warn "Retention dialog cancelled — keeping BACKUP_RETENTION=$BACKUP_RETENTION"
@@ -112,13 +101,19 @@ function update_script() {
 
       printf 'BACKUP_RETENTION=%s\n' "$BACKUP_RETENTION" > "$VARS_FILE"
       chmod 0644 "$VARS_FILE"
+    fi
+  
+    if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
+      exit
+    fi
+    #spinner left from check_for_gh_release message "New release available ....."
+    stop_spinner
 
-      if [[ "$DOPTS_UPPER" == "BR" ]]; then
-        confirm="Backup Retention is set to: ${BACKUP_RETENTION}\n\nDo you wish to continue with the update now?"
-        if ! whiptail --title "Confirm Update" --yesno "$confirm" 10 70 --defaultno; then
-          msg_warn "Chose to exit after retention review — no update performed."
-          exit 0
-        fi
+    if [[ "$DOPTS_UPPER" == "BR" ]]; then
+      confirm="Backup Retention is set to: ${BACKUP_RETENTION}\n\nDo you wish to continue with the update now?"
+      if ! whiptail --title "Confirm Update" --yesno "$confirm" 10 70 --defaultno; then
+        msg_warn "Chose to exit after retention review — no update performed."
+        exit 0
       fi
     fi
   fi
