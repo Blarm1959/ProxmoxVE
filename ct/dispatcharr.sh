@@ -60,7 +60,6 @@ function update_script() {
   DOPTS=${DOPTS:-N}
   DOPTS_UPPER="$(printf '%s' "$DOPTS" | tr '[:lower:]' '[:upper:]')"
   
-  echo "BX1"
   if ! [[ "$DOPTS_UPPER" == "FV" || "$DOPTS_UPPER" == "BO" ]]; then
     if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
       exit
@@ -68,7 +67,6 @@ function update_script() {
     #spinner left from check_for_gh_release message "New release available ....."
     stop_spinner
   fi
-  echo "BX2"
 
   # Unified backup retention setting
   DEFAULT_BACKUP_RETENTION=3                 # keep newest N backups by default
@@ -118,26 +116,6 @@ function update_script() {
           msg_info "User chose to exit after retention review — no update performed."
           exit 0
         fi
-      fi
-    fi
-
-    # DOPTS=FV → prompt to set /root/.dispatcharr (force-version), then continue update
-    if [[ "$DOPTS_UPPER" == "FV" ]]; then
-      cur=""; [ -f "$VERSION_FILE" ] && cur=$(sed -n '1p' "$VERSION_FILE")
-      msg="Force-version sets the recorded Dispatcharr version stored at:\n$VERSION_FILE\n\n"
-      msg+="To FORCE an update, enter a value DIFFERENT from the current version.\n"
-      msg+="Leave blank to clear the version file."
-      new=$(whiptail --inputbox "$msg" 14 78 "$cur" --title "Dispatcharr Options: Force Version" 3>&1 1>&2 2>&3) || {
-        msg_warn "Force-version dialog cancelled — keeping version as-is."
-        true
-      }
-      if [ -z "${new:-}" ]; then
-        rm -f "$VERSION_FILE"
-        msg_info "Cleared version file: $VERSION_FILE"
-      else
-        printf '%s\n' "$new" > "$VERSION_FILE"
-        chmod 0644 "$VERSION_FILE"
-        msg_info "Set version file to: $(sed -n '1p' "$VERSION_FILE")"
       fi
     fi
   fi
@@ -192,9 +170,15 @@ function update_script() {
     fi
   fi
 
+  # DOPTS=FV → remove /root/.dispatcharr (force-version), then continue update
+  if [[ "$DOPTS_UPPER" == "FV" ]]; then
+    msg_warn "Cleared version file: $VERSION_FILE"
+    rm -f "$VERSION_FILE"
+  fi
+
   # If build-only, announce fast path
   if [[ "$DOPTS_UPPER" == "BO" ]]; then
-    msg_warn "BUILD_ONLY fast path enabled via DOPTS=BO — skipping release check, apt upgrade, backup/prune, and Django migrations."
+    msg_warn "BUILD_ONLY fast path enabled via DOPTS=BO — skipping apt upgrade, backup/prune, and Django migrations."
   fi
 
   if [[ "$DOPTS_UPPER" != "BO" ]]; then
