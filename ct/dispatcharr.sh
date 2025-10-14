@@ -60,6 +60,7 @@ function update_script() {
   DOPTS=${DOPTS:-N}
   DOPTS_UPPER="$(printf '%s' "$DOPTS" | tr '[:lower:]' '[:upper:]')"
   
+  echo "BX1"
   if ! [[ "$DOPTS_UPPER" == "FV" || "$DOPTS_UPPER" == "BO" ]]; then
     if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
       exit
@@ -67,6 +68,7 @@ function update_script() {
     #spinner left from check_for_gh_release message "New release available ....."
     stop_spinner
   fi
+  echo "BX2"
 
   # Unified backup retention setting
   DEFAULT_BACKUP_RETENTION=3                 # keep newest N backups by default
