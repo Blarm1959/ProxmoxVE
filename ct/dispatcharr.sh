@@ -232,6 +232,8 @@ function update_script() {
   msg_ok "Services stopped for $APP"
 
   if [[ "$DOPTS_UPPER" != "BO" ]]; then
+    msg_ok "Backup Retention: ${BACKUP_RETENTION}"
+    
     # --- Backup important paths and database ---
     msg_info "Creating Backup of current installation"
 
