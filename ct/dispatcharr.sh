@@ -172,7 +172,7 @@ function update_script() {
 
   # DOPTS=FV → remove /root/.dispatcharr (force-version), then continue update
   if [[ "$DOPTS_UPPER" == "FV" ]]; then
-    msg_warn "Cleared version file: $VERSION_FILE"
+    msg_warn "Cleared version file"
     rm -f "$VERSION_FILE"
   fi
 
