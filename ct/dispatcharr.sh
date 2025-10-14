@@ -143,31 +143,6 @@ function update_script() {
   DB_BACKUP_FILE="${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump"
   BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
 
-  # Only warn if numeric retention (pruning will happen) and not in build-only mode
-  if [[ "$DOPTS_UPPER" != "BO" ]]; then
-    if [[ "$BACKUP_RETENTION" =~ ^[0-9]+$ ]]; then
-      # shellcheck disable=SC2086
-      EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
-      COUNT=${#EXISTING_BACKUPS[@]}
-      if [ "$COUNT" -ge "$BACKUP_RETENTION" ]; then
-        TO_REMOVE=$((COUNT - BACKUP_RETENTION + 1))
-        LIST_PREVIEW=$(printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | sed 's/^/  - /')
-        MSG="Detected $COUNT existing backups in /root.
-  A new backup will be created now, then $TO_REMOVE older backup(s) will be deleted
-  to keep only the newest ${BACKUP_RETENTION}.
-
-  Backups that would be removed:
-  ${LIST_PREVIEW}
-
-  Do you want to continue?"
-        if ! whiptail --title "Dispatcharr Backup Warning" --yesno "$MSG" 20 78 --defaultno; then
-          msg_warn "Backup/update cancelled by user at pre-flight backup limit check."
-          exit 0
-        fi
-      fi
-    fi
-  fi
-
   # DOPTS=FV → remove /root/.dispatcharr (force-version), then continue update
   if [[ "$DOPTS_UPPER" == "FV" ]]; then
     msg_warn "Cleared version file"
