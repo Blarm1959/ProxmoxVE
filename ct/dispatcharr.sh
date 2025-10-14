@@ -113,7 +113,7 @@ function update_script() {
       if [[ "$DOPTS_UPPER" == "BR" ]]; then
         confirm="Backup Retention is set to: ${BACKUP_RETENTION}\n\nDo you wish to continue with the update now?"
         if ! whiptail --title "Confirm Update" --yesno "$confirm" 10 70 --defaultno; then
-          msg_info "User chose to exit after retention review — no update performed."
+          msg_warn "Chose to exit after retention review — no update performed."
           exit 0
         fi
       fi
