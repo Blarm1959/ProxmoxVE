@@ -33,12 +33,34 @@ function update_script() {
     exit
   fi
 
-  # === Dispatcharr options (DOPTS) + backup retention + force-version ===
-  # DOPTS modes (choose ONE via CLI): BR = Backup Retention, FV = Force Version, BO = Build-only
+  # ============================================================================
+  #  Dispatcharr Options (DOPTS)
+  #  --------------------------------------------------------------------------
+  #  The DOPTS environment variable controls optional behaviors during update.
+  #  Only one mode should be used at a time.
+  #
+  #  DOPTS=BR  →  Backup Retention
+  #      • Prompts for BACKUP_RETENTION (ALL or number > 0)
+  #      • Saves the setting to /root/.dispatcharr_vars
+  #      • Asks user whether to continue the update after setting
+  #
+  #  DOPTS=FV  →  Force Version
+  #      • Prompts for the version string stored in /root/.dispatcharr
+  #      • Used to trigger a forced update by changing the recorded version
+  #      • Continues the update automatically after setting
+  #
+  #  DOPTS=BO  →  Build-Only (Fast Path)
+  #      • Skips release check, apt upgrade, backup creation/pruning,
+  #        Django migrations, and nginx reload
+  #      • Intended for rapid rebuilds or testing inside an existing container
+  #
+  #  If DOPTS is unset or not recognized:
+  #      • Normal full update process runs using saved /root/.dispatcharr_vars
+  # ============================================================================
   DOPTS=${DOPTS:-N}
   DOPTS_UPPER="$(printf '%s' "$DOPTS" | tr '[:lower:]' '[:upper:]')"
   
-  if [[ "$DOPTS_UPPER" != "BO" ]]; then
+  if ! [[ "$DOPTS_UPPER" == "FV" || "$DOPTS_UPPER" == "BO" ]]; then
     if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
       exit
     fi
