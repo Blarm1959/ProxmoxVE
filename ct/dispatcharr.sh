@@ -34,38 +34,38 @@ function update_script() {
   fi
 
   # ============================================================================
-  #  Dispatcharr Options (DOPTS)
+  #  Dispatcharr Options (DOPT)
   #  --------------------------------------------------------------------------
-  #  The DOPTS environment variable controls optional behaviors during update.
+  #  The DOPT environment variable controls optional behaviors during update.
   #  Only one mode should be used at a time.
   #
-  #  DOPTS=BR  →  Backup Retention
+  #  DOPT=BR  →  Backup Retention
   #      • Prompts for BACKUP_RETENTION (ALL or number > 0)
   #      • Saves the setting to /root/.dispatcharr_vars
   #      • Asks user whether to continue the update after setting
   #
-  #  DOPTS=FV  →  Force Version
+  #  DOPT=FV  →  Force Version
   #      • Prompts for the version string stored in /root/.dispatcharr
   #      • Used to trigger a forced update by changing the recorded version
   #      • Continues the update automatically after setting
   #
-  #  DOPTS=BO  →  Build-Only (Fast Path)
+  #  DOPT=BO  →  Build-Only (Fast Path)
   #      • Skips release check, apt upgrade, backup creation/pruning,
   #        Django migrations, and nginx reload
   #      • Intended for rapid rebuilds or testing inside an existing container
   #
-  #  If DOPTS is unset or not recognized:
+  #  If DOPT is unset or not recognized:
   #      • Normal full update process runs using saved /root/.dispatcharr_vars
   # ============================================================================
-  DOPTS=${DOPTS:-N}
-  DOPTS_UPPER="$(printf '%s' "$DOPTS" | tr '[:lower:]' '[:upper:]')"
+  DOPT=${DOPT:-N}
+  DOPT_UPPER="$(printf '%s' "$DOPT" | tr '[:lower:]' '[:upper:]')"
 
   # Unified backup retention setting
   DEFAULT_BACKUP_RETENTION=3                 # keep newest N backups by default
   VARS_FILE="/root/.dispatcharr_vars"
   VERSION_FILE="/root/.dispatcharr"
 
-  # CLI cannot override retention directly; only VARS_FILE or DOPTS=BR may change it
+  # CLI cannot override retention directly; only VARS_FILE or DOPT=BR may change it
   BACKUP_RETENTION="$DEFAULT_BACKUP_RETENTION"
 
   # Load from vars file if present
@@ -82,9 +82,9 @@ function update_script() {
   fi
 
   # If force-version or build-only, we won't prompt or touch backups/version here
-  if ! [[ "$DOPTS_UPPER" == "FV" || "$DOPTS_UPPER" == "BO" ]]; then
-    # DOPTS=BR → prompt retention, save file, and ask whether to continue
-    if [[ "$DOPTS_UPPER" == "BR" || ! -f "$VARS_FILE" ]]; then
+  if ! [[ "$DOPT_UPPER" == "FV" || "$DOPT_UPPER" == "BO" ]]; then
+    # DOPT=BR → prompt retention, save file, and ask whether to continue
+    if [[ "$DOPT_UPPER" == "BR" || ! -f "$VARS_FILE" ]]; then
       while true; do
         ans=$(whiptail --inputbox "Backup retention:\n\n• Enter 'ALL' to keep all backups (no pruning)\n• Or enter a number > 0 to keep only the newest N backups" 12 70 "$BACKUP_RETENTION" --title "Dispatcharr Options: Backup Retention" 3>&1 1>&2 2>&3) || {
           msg_warn "Retention dialog cancelled — keeping BACKUP_RETENTION=$BACKUP_RETENTION"
@@ -109,7 +109,7 @@ function update_script() {
     #spinner left from check_for_gh_release message "New release available ....."
     stop_spinner
 
-    if [[ "$DOPTS_UPPER" == "BR" ]]; then
+    if [[ "$DOPT_UPPER" == "BR" ]]; then
       confirm="Backup Retention is set to: ${BACKUP_RETENTION}\n\nDo you wish to continue with the update now?"
       if ! whiptail --title "Confirm Update" --yesno "$confirm" 10 70 --defaultno; then
         msg_warn "Chose to exit after retention review — no update performed."
@@ -143,18 +143,18 @@ function update_script() {
   DB_BACKUP_FILE="${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump"
   BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
 
-  # DOPTS=FV → remove /root/.dispatcharr (force-version), then continue update
-  if [[ "$DOPTS_UPPER" == "FV" ]]; then
+  # DOPT=FV → remove /root/.dispatcharr (force-version), then continue update
+  if [[ "$DOPT_UPPER" == "FV" ]]; then
     msg_ok "Cleared version file"
     rm -f "$VERSION_FILE"
   fi
 
   # If build-only, announce fast path
-  if [[ "$DOPTS_UPPER" == "BO" ]]; then
+  if [[ "$DOPT_UPPER" == "BO" ]]; then
     msg_ok "Build-Only enabled — skipping apt upgrade, backup/prune, and Django migrations."
   fi
 
-  if [[ "$DOPTS_UPPER" != "BO" ]]; then
+  if [[ "$DOPT_UPPER" != "BO" ]]; then
     if [[ "$BACKUP_RETENTION" =~ ^[0-9]+$ ]]; then
       # shellcheck disable=SC2086
       EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
@@ -204,7 +204,7 @@ function update_script() {
   systemctl stop dispatcharr
   msg_ok "Services stopped for $APP"
 
-  if [[ "$DOPTS_UPPER" != "BO" ]]; then
+  if [[ "$DOPT_UPPER" != "BO" ]]; then
     msg_ok "Backup Retention: ${BACKUP_RETENTION}"
 
     # --- Backup important paths and database ---
@@ -306,7 +306,7 @@ BASH
   ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
   msg_ok "Python environment refreshed"
 
-  if [[ "$DOPTS_UPPER" != "BO" ]]; then
+  if [[ "$DOPT_UPPER" != "BO" ]]; then
     # Run Django migrations
     msg_info "Running Django migrations"
     $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
@@ -317,7 +317,7 @@ BASH
   msg_info "Restarting services"
   $STD systemctl daemon-reload || true
   $STD systemctl restart dispatcharr dispatcharr-celery dispatcharr-celerybeat dispatcharr-daphne || true
-  if [[ "$DOPTS_UPPER" != "BO" ]]; then
+  if [[ "$DOPT_UPPER" != "BO" ]]; then
     $STD systemctl reload nginx 2>/dev/null || true
   fi
   msg_ok "Services restarted"
