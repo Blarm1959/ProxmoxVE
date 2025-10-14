@@ -145,13 +145,13 @@ function update_script() {
 
   # DOPTS=FV → remove /root/.dispatcharr (force-version), then continue update
   if [[ "$DOPTS_UPPER" == "FV" ]]; then
-    msg_warn "Cleared version file"
+    msg_ok "Cleared version file"
     rm -f "$VERSION_FILE"
   fi
 
   # If build-only, announce fast path
   if [[ "$DOPTS_UPPER" == "BO" ]]; then
-    msg_warn "Build-Only enabled — skipping apt upgrade, backup/prune, and Django migrations."
+    msg_ok "Build-Only enabled — skipping apt upgrade, backup/prune, and Django migrations."
   fi
 
   if [[ "$DOPTS_UPPER" != "BO" ]]; then
