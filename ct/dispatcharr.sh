@@ -178,7 +178,7 @@ function update_script() {
 
   # If build-only, announce fast path
   if [[ "$DOPTS_UPPER" == "BO" ]]; then
-    msg_warn "BUILD_ONLY fast path enabled via DOPTS=BO — skipping apt upgrade, backup/prune, and Django migrations."
+    msg_warn "Build-Only enabled — skipping apt upgrade, backup/prune, and Django migrations."
   fi
 
   if [[ "$DOPTS_UPPER" != "BO" ]]; then
