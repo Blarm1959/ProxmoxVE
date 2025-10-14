@@ -90,7 +90,7 @@ function update_script() {
   fi
 
   # If build-only, we won't prompt or touch backups/version here
-  if [[ "$DOPTS_UPPER" != "BO" ]]; then
+  if ! [[ "$DOPTS_UPPER" == "FV" || "$DOPTS_UPPER" == "BO" ]]; then
     # DOPTS=BR → prompt retention, save file, and ask whether to continue
     if [[ "$DOPTS_UPPER" == "BR" || ! -f "$VARS_FILE" ]]; then
       while true; do
