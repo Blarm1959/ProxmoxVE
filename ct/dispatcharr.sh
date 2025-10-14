@@ -33,31 +33,89 @@ function update_script() {
     exit
   fi
 
-  # Defaults for optional overrides
-  DEFAULT_BACKUPS_TOKEEP=3
-  DEFAULT_BACKUP_CHECK=Y
-  DEFAULT_BUILD_ONLY=N
-
-  # BUILD_ONLY may be overridden on the command line
-  BUILD_ONLY=${BUILD_ONLY:-$DEFAULT_BUILD_ONLY}
-
-  # These must IGNORE CLI env overrides unless GUI=Y is used
-  BACKUP_CHECK="$DEFAULT_BACKUP_CHECK"
-  BACKUPS_TOKEEP="$DEFAULT_BACKUPS_TOKEEP"
-
-  GUI=${GUI:-N}
-
-  # If BUILD_ONLY is Y/y, override and disable GUI Mode
-  if [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
-    GUI="N"
-  fi
+  # === Dispatcharr options (DOPTS) + backup retention + force-version ===
+  # DOPTS modes (choose ONE via CLI): BR = Backup Retention, FV = Force Version, BO = Build-only
+  DOPTS=${DOPTS:-N}
+  DOPTS_UPPER="$(printf '%s' "$DOPTS" | tr '[:lower:]' '[:upper:]')"
   
-  if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
+  if [[ "$DOPTS_UPPER" != "BO" ]]; then
     if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
       exit
     fi
     #spinner left from check_for_gh_release message "New release available ....."
     stop_spinner
+  fi
+
+  # Unified backup retention setting
+  DEFAULT_BACKUP_RETENTION=3                 # keep newest N backups by default
+  VARS_FILE="/root/.dispatcharr_vars"
+  VERSION_FILE="/root/.dispatcharr"
+
+  # CLI cannot override retention directly; only VARS_FILE or DOPTS=BR may change it
+  BACKUP_RETENTION="$DEFAULT_BACKUP_RETENTION"
+
+  # Load from vars file if present
+  if [ -f "$VARS_FILE" ]; then
+    # shellcheck disable=SC1090
+    . "$VARS_FILE"
+  fi
+
+  # Normalize/validate BACKUP_RETENTION
+  if [[ "${BACKUP_RETENTION}" =~ ^[Aa][Ll][Ll]$ ]]; then
+    BACKUP_RETENTION="ALL"
+  elif ! [[ "${BACKUP_RETENTION}" =~ ^[0-9]+$ ]] || [ "${BACKUP_RETENTION}" -le 0 ]; then
+    BACKUP_RETENTION="$DEFAULT_BACKUP_RETENTION"
+  fi
+
+  # If build-only, we won't prompt or touch backups/version here
+  if [[ "$DOPTS_UPPER" != "BO" ]]; then
+    # DOPTS=BR → prompt retention, save file, and ask whether to continue
+    if [[ "$DOPTS_UPPER" == "BR" || ! -f "$VARS_FILE" ]]; then
+      while true; do
+        ans=$(whiptail --inputbox "Backup retention:\n\n• Enter 'ALL' to keep all backups (no pruning)\n• Or enter a number > 0 to keep only the newest N backups" 12 70 "$BACKUP_RETENTION" --title "Dispatcharr Options: Backup Retention" 3>&1 1>&2 2>&3) || {
+          msg_warn "Retention dialog cancelled — keeping BACKUP_RETENTION=$BACKUP_RETENTION"
+          break
+        }
+        if [[ "$ans" =~ ^[Aa][Ll][Ll]$ ]]; then
+          BACKUP_RETENTION="ALL"; break
+        elif [[ "$ans" =~ ^[0-9]+$ ]] && [ "$ans" -gt 0 ]; then
+          BACKUP_RETENTION="$ans"; break
+        else
+          whiptail --msgbox "Invalid input. Type ALL or a positive number (e.g., 3)." 8 70 --title "Invalid Entry"
+        fi
+      done
+
+      printf 'BACKUP_RETENTION=%s\n' "$BACKUP_RETENTION" > "$VARS_FILE"
+      chmod 0644 "$VARS_FILE"
+
+      if [[ "$DOPTS_UPPER" == "BR" ]]; then
+        confirm="Backup Retention is set to: ${BACKUP_RETENTION}\n\nDo you wish to continue with the update now?"
+        if ! whiptail --title "Confirm Update" --yesno "$confirm" 10 70 --defaultno; then
+          msg_info "User chose to exit after retention review — no update performed."
+          exit 0
+        fi
+      fi
+    fi
+
+    # DOPTS=FV → prompt to set /root/.dispatcharr (force-version), then continue update
+    if [[ "$DOPTS_UPPER" == "FV" ]]; then
+      cur=""; [ -f "$VERSION_FILE" ] && cur=$(sed -n '1p' "$VERSION_FILE")
+      msg="Force-version sets the recorded Dispatcharr version stored at:\n$VERSION_FILE\n\n"
+      msg+="To FORCE an update, enter a value DIFFERENT from the current version.\n"
+      msg+="Leave blank to clear the version file."
+      new=$(whiptail --inputbox "$msg" 14 78 "$cur" --title "Dispatcharr Options: Force Version" 3>&1 1>&2 2>&3) || {
+        msg_warn "Force-version dialog cancelled — keeping version as-is."
+        true
+      }
+      if [ -z "${new:-}" ]; then
+        rm -f "$VERSION_FILE"
+        msg_info "Cleared version file: $VERSION_FILE"
+      else
+        printf '%s\n' "$new" > "$VERSION_FILE"
+        chmod 0644 "$VERSION_FILE"
+        msg_info "Set version file to: $(sed -n '1p' "$VERSION_FILE")"
+      fi
+    fi
   fi
 
   # Variables
@@ -85,65 +143,52 @@ function update_script() {
   DB_BACKUP_FILE="${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump"
   BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
 
-  APP_LC=$(echo "${APP,,}" | tr -d ' ')
-  VERSION_FILE="$HOME/.${APP_LC}"
-
-  if [[ "$GUI" == "Y" || "$GUI" == "y" ]]; then
-    # --- Loop for BACKUP_CHECK ---
-    while true; do
-      BACKUP_CHECK=$(whiptail --inputbox "Enter BACKUP_CHECK value (Y/N)" 8 60 "$DEFAULT_BACKUP_CHECK" --title "GUI Mode" 3>&1 1>&2 2>&3) || {
-        msg_warn "GUI input cancelled — using default BACKUP_CHECK=$DEFAULT_BACKUP_CHECK"
-        BACKUP_CHECK="$DEFAULT_BACKUP_CHECK"
-        break
-      }
-      if [[ "$BACKUP_CHECK" =~ ^[YyNn]$ ]]; then
-        break
-      else
-        whiptail --msgbox "Invalid input. Please enter Y or N." 8 50 --title "Invalid Entry"
-      fi
-    done
-
-    # --- Loop for BACKUPS_TOKEEP (only if BACKUP_CHECK not N/n) ---
-    if ! [[ "$BACKUP_CHECK" == "N" || "$BACKUP_CHECK" == "n" ]]; then
-      while true; do
-        BACKUPS_TOKEEP=$(whiptail --inputbox "Enter BACKUPS_TOKEEP (number > 0)" 8 60 "$DEFAULT_BACKUPS_TOKEEP" --title "GUI Mode" 3>&1 1>&2 2>&3) || {
-          msg_warn "GUI input cancelled — using default BACKUPS_TOKEEP=$DEFAULT_BACKUPS_TOKEEP"
-          BACKUPS_TOKEEP="$DEFAULT_BACKUPS_TOKEEP"
-          break
-        }
-        if [[ "$BACKUPS_TOKEEP" =~ ^[0-9]+$ ]] && [ "$BACKUPS_TOKEEP" -gt 0 ]; then
-          break
-        else
-          whiptail --msgbox "Invalid input. Please enter a positive number." 8 60 --title "Invalid Entry"
-        fi
-      done
-    fi
-  fi
-
-  if [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
-    msg_warn "BUILD_ONLY — skipping release check, apt upgrade, backup/prune, and Django migrations."
-  fi
-
-  if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
-    if ! [[ "$BACKUP_CHECK" == "N" || "$BACKUP_CHECK" == "n" ]]; then
-      # --- Early check: too many existing backups ---
+  # Only warn if numeric retention (pruning will happen) and not in build-only mode
+  if [[ "$DOPTS_UPPER" != "BO" ]]; then
+    if [[ "$BACKUP_RETENTION" =~ ^[0-9]+$ ]]; then
       # shellcheck disable=SC2086
       EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
       COUNT=${#EXISTING_BACKUPS[@]}
-
-      if [ "$COUNT" -ge "$BACKUPS_TOKEEP" ]; then
-        # After creating a new backup, this many will be pruned:
-        TO_REMOVE=$((COUNT - BACKUPS_TOKEEP + 1))
+      if [ "$COUNT" -ge "$BACKUP_RETENTION" ]; then
+        TO_REMOVE=$((COUNT - BACKUP_RETENTION + 1))
         LIST_PREVIEW=$(printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | sed 's/^/  - /')
-
         MSG="Detected $COUNT existing backups in /root.
-      A new backup will be created now, then $TO_REMOVE older backup(s) will be deleted
-      to keep only the newest ${BACKUPS_TOKEEP}.
+  A new backup will be created now, then $TO_REMOVE older backup(s) will be deleted
+  to keep only the newest ${BACKUP_RETENTION}.
 
-      Backups that would be removed:
-      ${LIST_PREVIEW}
+  Backups that would be removed:
+  ${LIST_PREVIEW}
 
-      Do you want to continue?"
+  Do you want to continue?"
+        if ! whiptail --title "Dispatcharr Backup Warning" --yesno "$MSG" 20 78 --defaultno; then
+          msg_warn "Backup/update cancelled by user at pre-flight backup limit check."
+          exit 0
+        fi
+      fi
+    fi
+  fi
+
+  # If build-only, announce fast path
+  if [[ "$DOPTS_UPPER" == "BO" ]]; then
+    msg_warn "BUILD_ONLY fast path enabled via DOPTS=BO — skipping release check, apt upgrade, backup/prune, and Django migrations."
+  fi
+
+  if [[ "$DOPTS_UPPER" != "BO" ]]; then
+    if [[ "$BACKUP_RETENTION" =~ ^[0-9]+$ ]]; then
+      # shellcheck disable=SC2086
+      EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
+      COUNT=${#EXISTING_BACKUPS[@]}
+      if [ "$COUNT" -ge "$BACKUP_RETENTION" ]; then
+        TO_REMOVE=$((COUNT - BACKUP_RETENTION + 1))
+        LIST_PREVIEW=$(printf '%s\n' "${EXISTING_BACKUPS[@]}" | tail -n "$TO_REMOVE" | sed 's/^/  - /')
+        MSG="Detected $COUNT existing backups in /root.
+  A new backup will be created now, then $TO_REMOVE older backup(s) will be deleted
+  to keep only the newest ${BACKUP_RETENTION}.
+
+  Backups that would be removed:
+  ${LIST_PREVIEW}
+
+  Do you want to continue?"
         if ! whiptail --title "Dispatcharr Backup Warning" --yesno "$MSG" 20 78 --defaultno; then
           msg_warn "Backup/update cancelled by user at pre-flight backup limit check."
           exit 0
@@ -178,7 +223,7 @@ function update_script() {
   systemctl stop dispatcharr
   msg_ok "Services stopped for $APP"
 
-  if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
+  if [[ "$DOPTS_UPPER" != "BO" ]]; then
     # --- Backup important paths and database ---
     msg_info "Creating Backup of current installation"
 
@@ -212,16 +257,15 @@ function update_script() {
     # Cleanup temp DB dump
     rm -f "${DB_BACKUP_FILE}"
 
-    if ! [[ "$BACKUP_CHECK" == "N" || "$BACKUP_CHECK" == "n" ]]; then
-      # --- Prune old backups (keep newest N by filename order) ---
+    if [[ "$BACKUP_RETENTION" =~ ^[0-9]+$ ]]; then
       # shellcheck disable=SC2086
       ALL_BACKUPS="$(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true)"
       COUNT="$(printf '%s\n' "$ALL_BACKUPS" | sed '/^$/d' | wc -l)"
-      if [ "$COUNT" -gt "$BACKUPS_TOKEEP" ]; then
-        TO_REMOVE=$((COUNT - BACKUPS_TOKEEP))
+      if [ "$COUNT" -gt "$BACKUP_RETENTION" ]; then
+        TO_REMOVE=$((COUNT - BACKUP_RETENTION))
         OLD_BACKUPS="$(printf '%s\n' "$ALL_BACKUPS" | tail -n "$TO_REMOVE")"
-        msg_warn "Found $COUNT existing backups — keeping newest $BACKUPS_TOKEEP and removing $TO_REMOVE older backup(s):"
-        printf '%s\n' "$OLD_BACKUPS" | sed 's/^/ - /'
+        msg_warn "Found $COUNT existing backups — keeping newest $BACKUP_RETENTION and removing $TO_REMOVE older backup(s):"
+        printf '%s\n' "$OLD_BACKUPS" | sed 's/^/  - /'
         printf '%s\n' "$OLD_BACKUPS" | xargs -r rm -f
       fi
     fi
@@ -258,26 +302,28 @@ function update_script() {
   export PATH="/usr/local/bin:$PATH"
   $STD runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; [ -x env/bin/python ] || uv venv --seed env || uv venv env'
 
-  # Filter out uWSGI and install
-  runuser -u "$DISPATCH_USER" -- bash -c '
-    cd "'"${APP_DIR}"'"
-    REQ=requirements.txt
-    REQF=requirements.nouwsgi.txt
-    if [ -f "$REQ" ]; then
-      if grep -qiE "^\s*uwsgi(\b|[<>=~])" "$REQ"; then
-        sed -E "/^\s*uwsgi(\b|[<>=~]).*/Id" "$REQ" > "$REQF"
-      else
-        cp "$REQ" "$REQF"
-      fi
+  # Build a filtered requirements without uWSGI
+  # Ensure APP_DIR is visible to the child shell
+  runuser -u "$DISPATCH_USER" -- env APP_DIR="$APP_DIR" bash -s <<'BASH'
+  set -e
+  cd "$APP_DIR"
+  REQ=requirements.txt
+  REQF=requirements.nouwsgi.txt
+  if [ -f "$REQ" ]; then
+    if grep -qiE '^\s*uwsgi(\b|[<>=~])' "$REQ"; then
+      sed -E '/^\s*uwsgi(\b|[<>=~]).*/Id' "$REQ" > "$REQF"
+    else
+      cp "$REQ" "$REQF"
     fi
-  '
+  fi
+BASH
 
   runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q -r requirements.nouwsgi.txt'
   runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q gunicorn'
   ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
   msg_ok "Python environment refreshed"
 
-  if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
+  if [[ "$DOPTS_UPPER" != "BO" ]]; then
     # Run Django migrations
     msg_info "Running Django migrations"
     $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
@@ -288,7 +334,7 @@ function update_script() {
   msg_info "Restarting services"
   $STD systemctl daemon-reload || true
   $STD systemctl restart dispatcharr dispatcharr-celery dispatcharr-celerybeat dispatcharr-daphne || true
-  if ! [[ "$BUILD_ONLY" == "Y" || "$BUILD_ONLY" == "y" ]]; then
+  if [[ "$DOPTS_UPPER" != "BO" ]]; then
     $STD systemctl reload nginx 2>/dev/null || true
   fi
   msg_ok "Services restarted"
