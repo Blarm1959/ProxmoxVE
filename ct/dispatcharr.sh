@@ -44,10 +44,11 @@ function update_script() {
   #      • Saves the setting to /root/.dispatcharr_vars
   #      • Asks user whether to continue the update after setting
   #
-  #  DOPT=FV  →  Force Version
-  #      • Prompts for the version string stored in /root/.dispatcharr
-  #      • Used to trigger a forced update by changing the recorded version
-  #      • Continues the update automatically after setting
+  #  DOPT=IV  →  Ignore Version
+  #      • Removes /root/.dispatcharr before running the update
+  #      • Forces the update to run regardless of any recorded version match
+  #      • Useful when testing or reapplying an update without changing code
+  #      • Runs non-interactively (no user prompt)
   #
   #  DOPT=BO  →  Build-Only (Fast Path)
   #      • Skips release check, apt upgrade, backup creation/pruning,
@@ -81,8 +82,8 @@ function update_script() {
     BACKUP_RETENTION="$DEFAULT_BACKUP_RETENTION"
   fi
 
-  # If force-version or build-only, we won't prompt or touch backups/version here
-  if ! [[ "$DOPT_UPPER" == "FV" || "$DOPT_UPPER" == "BO" ]]; then
+  # If ignore-version or build-only, we won't prompt or touch backups/version here
+  if ! [[ "$DOPT_UPPER" == "IV" || "$DOPT_UPPER" == "BO" ]]; then
     # DOPT=BR → prompt retention, save file, and ask whether to continue
     if [[ "$DOPT_UPPER" == "BR" || ! -f "$VARS_FILE" ]]; then
       while true; do
@@ -143,8 +144,8 @@ function update_script() {
   DB_BACKUP_FILE="${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump"
   BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
 
-  # DOPT=FV → remove /root/.dispatcharr (force-version), then continue update
-  if [[ "$DOPT_UPPER" == "FV" ]]; then
+  # DOPT=IV → remove /root/.dispatcharr (ignore-version), then continue update
+  if [[ "$DOPT_UPPER" == "IV" ]]; then
     msg_ok "Cleared version file"
     rm -f "$VERSION_FILE"
   fi
