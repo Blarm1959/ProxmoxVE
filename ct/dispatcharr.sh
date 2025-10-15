@@ -58,8 +58,25 @@ function update_script() {
   #  If DOPT is unset or not recognized:
   #      • Normal full update process runs using saved /root/.dispatcharr_vars
   # ============================================================================
-  DOPT=${DOPT:-N}
-  DOPT_UPPER="$(printf '%s' "$DOPT" | tr '[:lower:]' '[:upper:]')"
+  # === Validate DOPT value ===
+  # Must be one of: BR, IV, BO — if unset, normal update; if invalid, exit.
+  VALID_DOPTS=("BR" "IV" "BO")
+  DOPT="${DOPT:-}"  # Empty string if not set
+
+  if [ ! -z "$DOPT" ]; then
+    valid_flag="false"
+    for v in "${VALID_DOPTS[@]}"; do
+      if [[ "$DOPT" == "$v" ]]; then
+        valid_flag="true"
+        break
+      fi
+    done
+
+    if [[ "$valid_flag" != "true" ]]; then
+      msg_warn "Invalid DOPT=${DOPT}. Valid options are: BR (Backup Retention), IV (Ignore Version), BO (Build-Only)."
+      exit 1
+    fi
+  fi
 
   # Unified backup retention setting
   DEFAULT_BACKUP_RETENTION=3                 # keep newest N backups by default
@@ -83,9 +100,9 @@ function update_script() {
   fi
 
   # If ignore-version or build-only, we won't prompt or touch backups/version here
-  if ! [[ "$DOPT_UPPER" == "IV" || "$DOPT_UPPER" == "BO" ]]; then
+  if ! [[ "$DOPT" == "IV" || "$DOPT" == "BO" ]]; then
     # DOPT=BR → prompt retention, save file, and ask whether to continue
-    if [[ "$DOPT_UPPER" == "BR" || ! -f "$VARS_FILE" ]]; then
+    if [[ "$DOPT" == "BR" || ! -f "$VARS_FILE" ]]; then
       while true; do
         ans=$(whiptail --inputbox "Backup retention:\n\n• Enter 'ALL' to keep all backups (no pruning)\n• Or enter a number > 0 to keep only the newest N backups" 12 70 "$BACKUP_RETENTION" --title "Dispatcharr Options: Backup Retention" 3>&1 1>&2 2>&3) || {
           msg_warn "Retention dialog cancelled — keeping BACKUP_RETENTION=$BACKUP_RETENTION"
@@ -110,7 +127,7 @@ function update_script() {
     #spinner left from check_for_gh_release message "New release available ....."
     stop_spinner
 
-    if [[ "$DOPT_UPPER" == "BR" ]]; then
+    if [[ "$DOPT" == "BR" ]]; then
       confirm="Backup Retention is set to: ${BACKUP_RETENTION}\n\nDo you wish to continue with the update now?"
       if ! whiptail --title "Confirm Update" --yesno "$confirm" 10 70 --defaultno; then
         msg_warn "Chose to exit after retention review — no update performed."
@@ -145,17 +162,17 @@ function update_script() {
   BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
 
   # DOPT=IV → remove /root/.dispatcharr (ignore-version), then continue update
-  if [[ "$DOPT_UPPER" == "IV" ]]; then
+  if [[ "$DOPT" == "IV" ]]; then
     msg_ok "Cleared version file"
     rm -f "$VERSION_FILE"
   fi
 
   # If build-only, announce fast path
-  if [[ "$DOPT_UPPER" == "BO" ]]; then
+  if [[ "$DOPT" == "BO" ]]; then
     msg_ok "Build-Only enabled — skipping apt upgrade, backup/prune, and Django migrations."
   fi
 
-  if [[ "$DOPT_UPPER" != "BO" ]]; then
+  if [[ "$DOPT" != "BO" ]]; then
     if [[ "$BACKUP_RETENTION" =~ ^[0-9]+$ ]]; then
       # shellcheck disable=SC2086
       EXISTING_BACKUPS=( $(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true) )
@@ -205,7 +222,7 @@ function update_script() {
   systemctl stop dispatcharr
   msg_ok "Services stopped for $APP"
 
-  if [[ "$DOPT_UPPER" != "BO" ]]; then
+  if [[ "$DOPT" != "BO" ]]; then
     msg_ok "Backup Retention: ${BACKUP_RETENTION}"
 
     # --- Backup important paths and database ---
@@ -307,7 +324,7 @@ BASH
   ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
   msg_ok "Python environment refreshed"
 
-  if [[ "$DOPT_UPPER" != "BO" ]]; then
+  if [[ "$DOPT" != "BO" ]]; then
     # Run Django migrations
     msg_info "Running Django migrations"
     $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
@@ -318,7 +335,7 @@ BASH
   msg_info "Restarting services"
   $STD systemctl daemon-reload || true
   $STD systemctl restart dispatcharr dispatcharr-celery dispatcharr-celerybeat dispatcharr-daphne || true
-  if [[ "$DOPT_UPPER" != "BO" ]]; then
+  if [[ "$DOPT" != "BO" ]]; then
     $STD systemctl reload nginx 2>/dev/null || true
   fi
   msg_ok "Services restarted"
