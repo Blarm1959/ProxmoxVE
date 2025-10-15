@@ -120,20 +120,17 @@ function update_script() {
       printf 'BACKUP_RETENTION=%s\n' "$BACKUP_RETENTION" > "$VARS_FILE"
       chmod 0644 "$VARS_FILE"
     fi
-  
+
+    if [[ "$DOPT" == "BR" ]]; then
+      msg_ok "Backup Retention now set to $BACKUP_RETENTION."
+      exit 0
+    fi
+
     if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
       exit
     fi
     #spinner left from check_for_gh_release message "New release available ....."
     stop_spinner
-
-    if [[ "$DOPT" == "BR" ]]; then
-      confirm="Backup Retention is set to: ${BACKUP_RETENTION}\n\nDo you wish to continue with the update now?"
-      if ! whiptail --title "Confirm Update" --yesno "$confirm" 10 70 --defaultno; then
-        msg_warn "Chose to exit after retention review — no update performed."
-        exit 0
-      fi
-    fi
   fi
 
   # Variables
