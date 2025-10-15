@@ -120,19 +120,24 @@ function update_script() {
       printf 'BACKUP_RETENTION=%s\n' "$BACKUP_RETENTION" > "$VARS_FILE"
       chmod 0644 "$VARS_FILE"
     fi
-
+echo "BX1 $DOPT"
     if [[ "$DOPT" == "BR" ]]; then
+echo "BX2 $DOPT"
       msg_ok "Backup Retention now set to $BACKUP_RETENTION."
+echo "BX3 $DOPT"
       exit 0
     fi
-
+echo "BX4 $DOPT"
     if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
+echo "BX5 $DOPT"
+      msg_ok "No new release available; current version is up to date."
       exit
     fi
     #spinner left from check_for_gh_release message "New release available ....."
+echo "BX6 $DOPT"
     stop_spinner
   fi
-
+echo "BX7 $DOPT"
   # Variables
   DISPATCH_USER="dispatcharr"
   DISPATCH_GROUP="dispatcharr"
