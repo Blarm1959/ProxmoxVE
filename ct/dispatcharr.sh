@@ -122,7 +122,7 @@ function update_script() {
     fi
 
     if [[ "$DOPT" == "BR" ]]; then
-      msg_ok "Backup Retention now set to $BACKUP_RETENTION."
+      msg_ok "Backup Retention is now set to $BACKUP_RETENTION."
       exit 0
     fi
 
