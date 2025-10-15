@@ -119,10 +119,11 @@ function update_script() {
 
       printf 'BACKUP_RETENTION=%s\n' "$BACKUP_RETENTION" > "$VARS_FILE"
       chmod 0644 "$VARS_FILE"
+
+      msg_ok "Backup Retention is now set to $BACKUP_RETENTION."
     fi
 
     if [[ "$DOPT" == "BR" ]]; then
-      msg_ok "Backup Retention is now set to $BACKUP_RETENTION."
       exit 0
     fi
 
