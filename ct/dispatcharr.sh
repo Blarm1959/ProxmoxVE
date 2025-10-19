@@ -5,6 +5,7 @@ source <(curl -fsSL https://raw.githubusercontent.com/Blarm1959/ProxmoxVE/Dispat
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
 # Source: https://github.com/Dispatcharr/Dispatcharr
 
+#Blarm1959 Comments - START
 APP="Dispatcharr"
 var_tags="${var_tags:-}"
 var_cpu="${var_cpu:-2}"
@@ -419,3 +420,4 @@ msg_ok "Completed Successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
 echo -e "${INFO}${YW} Access it using the following URL:${CL}"
 echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:9191${CL}"
+#Blarm1959 Comments - END
