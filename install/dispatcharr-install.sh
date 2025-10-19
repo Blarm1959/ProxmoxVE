@@ -133,7 +133,6 @@ export UV_INDEX_URL="https://pypi.org/simple"
 export UV_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 export UV_INDEX_STRATEGY="unsafe-best-match"
 $STD runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; uv venv --seed env || uv venv env'
-
 # Build a filtered requirements without uWSGI
 # Ensure APP_DIR is visible to the child shell
 runuser -u "$DISPATCH_USER" -- env APP_DIR="$APP_DIR" bash -s <<'BASH'
@@ -149,7 +148,6 @@ if [ -f "$REQ" ]; then
   fi
 fi
 BASH
-
 runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q -r requirements.nouwsgi.txt'
 runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q gunicorn'
 ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"

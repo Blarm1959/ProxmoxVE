@@ -85,7 +85,6 @@ function update_script() {
         break
       fi
     done
-
     if [[ "$valid_flag" != "true" ]]; then
       msg_warn "Invalid DOPT=${DOPT}. Valid options are: BR (Backup Retention), IV (Ignore Version), BO (Build-Only)."
       exit 1
@@ -152,10 +151,8 @@ function update_script() {
           whiptail --msgbox "Invalid input. Type ALL or a positive number (e.g., 3)." 8 70 --title "Invalid Entry"
         fi
       done
-
       printf 'BACKUP_RETENTION=%s\n' "$BACKUP_RETENTION" > "$VARS_FILE"
       chmod 0644 "$VARS_FILE"
-
       msg_ok "Backup Retention is now set to $BACKUP_RETENTION."
     fi
 
@@ -225,7 +222,6 @@ function update_script() {
         fi
       fi
     fi
-
     # --- Remove any leftover temporary DB dumps (safe cleanup) ---
     if [ -d "$TMP_PGDUMP" ]; then
       shown=0
@@ -256,15 +252,12 @@ function update_script() {
 
   if [[ "$DOPT" != "BO" ]]; then
     msg_ok "Backup Retention: ${BACKUP_RETENTION}"
-
     # --- Backup important paths and database ---
     msg_info "Creating Backup of current installation"
-
     # DB dump (custom format for pg_restore)
     [ -d "$TMP_PGDUMP" ] || install -d -m 700 -o postgres -g postgres "$TMP_PGDUMP"
     sudo -u postgres pg_dump -Fc -f "${DB_BACKUP_FILE}" "$POSTGRES_DB"
     [ -s "${DB_BACKUP_FILE}" ] || { msg_error "Database dump is empty — aborting backup"; exit 1; }
-
     # Build TAR_* variables (NO /data; exclude rebuildable dirs)
     TAR_OPTS=( -C / --warning=no-file-changed --ignore-failed-read )
     TAR_EXCLUDES=(
@@ -289,10 +282,8 @@ function update_script() {
       "${DB_BACKUP_FILE#/}"
     )
     $STD tar -czf "${BACKUP_FILE}" "${TAR_OPTS[@]}" "${TAR_EXCLUDES[@]}" "${TAR_ITEMS[@]}"
-
     # Cleanup temp DB dump
     rm -f "${DB_BACKUP_FILE}"
-
     if [[ "$BACKUP_RETENTION" =~ ^[0-9]+$ ]]; then
       # shellcheck disable=SC2086
       ALL_BACKUPS="$(ls -1 $BACKUP_GLOB 2>/dev/null | sort -r || true)"
@@ -308,7 +299,6 @@ function update_script() {
     msg_ok "Backup Created: ${BACKUP_FILE}"
 
     # ====== BEGIN update steps ======
-
     # DOPT=IV → remove /root/.dispatcharr (ignore-version), then continue update
     if [[ "$DOPT" == "IV" ]]; then
       rm -f "$VERSION_FILE"
@@ -344,7 +334,6 @@ function update_script() {
   export UV_INDEX_STRATEGY="unsafe-best-match"
   export PATH="/usr/local/bin:$PATH"
   $STD runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; [ -x env/bin/python ] || uv venv --seed env || uv venv env'
-
   # Build a filtered requirements without uWSGI
   # Ensure APP_DIR is visible to the child shell
   runuser -u "$DISPATCH_USER" -- env APP_DIR="$APP_DIR" bash -s <<'BASH'
@@ -360,7 +349,6 @@ function update_script() {
     fi
   fi
 BASH
-
   runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q -r requirements.nouwsgi.txt'
   runuser -u "$DISPATCH_USER" -- bash -c 'cd "'"${APP_DIR}"'"; . env/bin/activate; uv pip install -q gunicorn'
   ln -sf /usr/bin/ffmpeg "${APP_DIR}/env/bin/ffmpeg"
@@ -385,7 +373,6 @@ BASH
     $STD systemctl reload nginx 2>/dev/null || true
   fi
   msg_ok "Services restarted"
-
   # ====== END update steps ======
 
   msg_ok "Updated ${APP} to v${CURRENT_VERSION}"
