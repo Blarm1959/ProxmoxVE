@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source <(curl -fsSL https://raw.githubusercontent.com/Blarm1959/ProxmoxVE/refs/heads/Dispatcharr/misc/build.func)
+source <(curl -fsSL https://raw.githubusercontent.com/Blarm1959/ProxmoxVE/Dispatcharr/misc/build.func)
 # Copyright (c) 2021-2025 community-scripts ORG
 # Author: Blarm1959
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
@@ -24,6 +24,11 @@ function update_script() {
   check_container_storage
   check_container_resources
 
+  # Disable all apt-listchanges prompts and mails
+  export DEBIAN_FRONTEND=noninteractive
+  export APT_LISTCHANGES_FRONTEND=none
+  export APT_LISTCHANGES_NO_MAIL=1
+
   # Application location
   APP_DIR="/opt/dispatcharr"
 
@@ -32,6 +37,15 @@ function update_script() {
     msg_error "No ${APP} Installation Found!"
     exit
   fi
+
+  # Unified backup retention setting
+  DEFAULT_BACKUP_RETENTION=3                 # keep newest N backups by default
+  VARS_FILE="/root/.dispatcharr_vars"
+  VERSION_FILE="/root/.dispatcharr"
+  CURRENT_VERSION=""
+
+  # CLI cannot override retention directly; only VARS_FILE or DOPT=BR may change it
+  BACKUP_RETENTION="$DEFAULT_BACKUP_RETENTION"
 
   # ============================================================================
   #  Dispatcharr Options (DOPT)
@@ -42,7 +56,6 @@ function update_script() {
   #  DOPT=BR  →  Backup Retention
   #      • Prompts for BACKUP_RETENTION (ALL or number > 0)
   #      • Saves the setting to /root/.dispatcharr_vars
-  #      • Asks user whether to continue the update after setting
   #
   #  DOPT=IV  →  Ignore Version
   #      • Removes /root/.dispatcharr before running the update
@@ -78,13 +91,35 @@ function update_script() {
     fi
   fi
 
-  # Unified backup retention setting
-  DEFAULT_BACKUP_RETENTION=3                 # keep newest N backups by default
-  VARS_FILE="/root/.dispatcharr_vars"
-  VERSION_FILE="/root/.dispatcharr"
-
-  # CLI cannot override retention directly; only VARS_FILE or DOPT=BR may change it
-  BACKUP_RETENTION="$DEFAULT_BACKUP_RETENTION"
+  # --- Load and validate PostgreSQL credentials from /root/Dispatcharr.creds ---
+  POSTGRES_DB="dispatcharr"
+  POSTGRES_USER="dispatch"
+  POSTGRES_PASSWORD=""
+  CREDS_FILE="/root/dispatcharr.creds"
+  if [ -f "${CREDS_FILE}" ]; then
+    # Extract values safely, removing CRs or stray spaces
+    POSTGRES_USER=$(grep -E '^Dispatcharr Database User:' "${CREDS_FILE}" | awk -F': ' '{print $2}' | tr -d '\r[:space:]')
+    POSTGRES_PASSWORD=$(grep -E '^Dispatcharr Database Password:' "${CREDS_FILE}" | awk -F': ' '{print $2}' | tr -d '\r[:space:]')
+    POSTGRES_DB=$(grep -E '^Dispatcharr Database Name:' "${CREDS_FILE}" | awk -F': ' '{print $2}' | tr -d '\r[:space:]')
+    # Validate that all three were found and non-empty
+    if [ -z "${POSTGRES_USER}" ] || [ -z "${POSTGRES_PASSWORD}" ] || [ -z "${POSTGRES_DB}" ]; then
+      msg_error "One or more PostgreSQL credentials are missing in ${CREDS_FILE}."
+      echo "Expected lines:"
+      echo "  Dispatcharr Database User: ..."
+      echo "  Dispatcharr Database Password: ..."
+      echo "  Dispatcharr Database Name: ..."
+      exit 1
+    fi
+  else
+    msg_error "Postgres credentials file ${CREDS_FILE} not found!"
+    exit 1
+  fi
+  # --- Verify PostgreSQL login works with stored credentials ---
+  if ! PGPASSWORD="${POSTGRES_PASSWORD}" \
+      psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -h localhost -q -c "SELECT 1;" >/dev/null 2>&1; then
+    msg_error "PostgreSQL login failed — credentials in ${CREDS_FILE} may be invalid."
+    exit 1
+  fi
 
   # Load from vars file if present
   if [ -f "$VARS_FILE" ]; then
@@ -100,7 +135,7 @@ function update_script() {
   fi
 
   # If ignore-version or build-only, we won't prompt or touch backups/version here
-  if ! [[ "$DOPT" == "IV" || "$DOPT" == "BO" ]]; then
+  if [[ "$DOPT" != "BO" ]]; then
     # DOPT=BR → prompt retention, save file, and ask whether to continue
     if [[ "$DOPT" == "BR" || ! -f "$VARS_FILE" ]]; then
       while true; do
@@ -127,21 +162,19 @@ function update_script() {
       exit 0
     fi
 
-    if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
-      msg_ok "No new release available; current version is up to date."
-      exit
+    if [[ "$DOPT" != "IV" ]]; then
+      if ! check_for_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"; then
+        msg_ok "No new release available; current version is up to date."
+        exit
+      fi
+      #spinner left from check_for_gh_release message "New release available ....."
+      stop_spinner
     fi
-    #spinner left from check_for_gh_release message "New release available ....."
-    stop_spinner
   fi
 
   # Variables
   DISPATCH_USER="dispatcharr"
   DISPATCH_GROUP="dispatcharr"
-
-  POSTGRES_DB="dispatcharr"
-  POSTGRES_USER="dispatch"
-  POSTGRES_PASSWORD="secret"
 
   NGINX_HTTP_PORT="9191"
   WEBSOCKET_PORT="8001"
@@ -160,10 +193,8 @@ function update_script() {
   DB_BACKUP_FILE="${TMP_PGDUMP}/${APP}_DB_${DTHHMM}.dump"
   BACKUP_GLOB="/root/${BACKUP_STEM}_*.tar.gz"
 
-  # DOPT=IV → remove /root/.dispatcharr (ignore-version), then continue update
-  if [[ "$DOPT" == "IV" ]]; then
-    msg_ok "Cleared version file"
-    rm -f "$VERSION_FILE"
+  if [ ! -z "$DOPT" ]; then
+    msg_ok "Using DOPT=${DOPT}"
   fi
 
   # If build-only, announce fast path
@@ -208,9 +239,10 @@ function update_script() {
         sudo -u postgres rm -f "$f" 2>/dev/null || true
       done
     fi
-  
+
     msg_info "Updating $APP LXC"
-    $STD bash -c 'DEBIAN_FRONTEND=noninteractive apt-get update && apt-get -y upgrade'
+    $STD apt-get update
+    $STD apt-get -y upgrade
     msg_ok "Updated $APP LXC"
   fi
 
@@ -244,6 +276,9 @@ function update_script() {
     )
     TAR_ITEMS=(
       "${APP_DIR#/}"
+      "${VERSION_FILE#/}"
+      "${VARS_FILE#/}"
+      "${CREDS_FILE#/}"
       "${NGINX_SITE#/}"
       "${NGINX_SITE_ENABLED#/}"
       "${SYSTEMD_DIR#/}/dispatcharr.service"
@@ -273,14 +308,21 @@ function update_script() {
 
     # ====== BEGIN update steps ======
 
-    # Fetch latest release into APP_DIR (PVE Helper tools.func)
+    # DOPT=IV → remove /root/.dispatcharr (ignore-version), then continue update
+    if [[ "$DOPT" == "IV" ]]; then
+      rm -f "$VERSION_FILE"
+      msg_ok "Cleared version file"
+    fi
+
+    # Fetch latest release into APP_DIR
     msg_info "Fetching latest Dispatcharr release"
     fetch_and_deploy_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"
     $STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
-    CURRENT_VERSION=""
-    [[ -f "$VERSION_FILE" ]] && CURRENT_VERSION=$(<"$VERSION_FILE")
     msg_ok "Release deployed"
   fi
+
+  # Load current version
+  [[ -f "$VERSION_FILE" ]] && CURRENT_VERSION=$(<"$VERSION_FILE")
 
   # Ensure required runtime dirs inside $APP_DIR (in case clean unpack removed them)
   msg_info "Ensuring runtime directories in APP_DIR"
@@ -329,7 +371,11 @@ BASH
     $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
     msg_ok "Django migrations complete"
   fi
-  
+
+  msg_info "Collecting Django static files"
+  $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}\"; source env/bin/activate; python manage.py collectstatic --noinput"
+  msg_ok "Collecting Django static files complete"
+
   # Restart services
   msg_info "Restarting services"
   $STD systemctl daemon-reload || true
@@ -340,9 +386,15 @@ BASH
   msg_ok "Services restarted"
 
   # ====== END update steps ======
-  
+
   msg_ok "Updated ${APP} to v${CURRENT_VERSION}"
- 
+
+  echo "Postgres (See $CREDS_FILE):"
+  echo "    Database Name: $POSTGRES_DB"
+  echo "    Database User: $POSTGRES_USER"
+  echo "    Database Password: $POSTGRES_PASSWORD"
+  echo
+
   echo "Nginx is listening on port ${NGINX_HTTP_PORT}."
   echo "Gunicorn socket: ${GUNICORN_SOCKET}."
   echo "WebSockets on port ${WEBSOCKET_PORT} (path /ws/)."

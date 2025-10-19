@@ -13,6 +13,11 @@ setting_up_container
 network_check
 update_os
 
+# Suppress apt-listchanges mails and prompts during automated install
+export DEBIAN_FRONTEND=noninteractive
+export APT_LISTCHANGES_FRONTEND=none
+export APT_LISTCHANGES_NO_MAIL=1
+
 # Application location
 APP_DIR="/opt/dispatcharr"
 
@@ -22,9 +27,15 @@ DISPATCH_USER="dispatcharr"
 DISPATCH_GROUP="dispatcharr"
 APP_DIR="/opt/dispatcharr"
 
+PG_VERSION="17"
+PG_CLUSTER="main"
+PG_DATADIR="/data/db"
 POSTGRES_DB="dispatcharr"
 POSTGRES_USER="dispatch"
-POSTGRES_PASSWORD="secret"
+POSTGRES_PASSWORD=""
+CREDS_FILE="/root/dispatcharr.creds"
+
+NODE_VERSION="24"
 
 NGINX_HTTP_PORT="9191"
 WEBSOCKET_PORT="8001"
@@ -40,7 +51,6 @@ APP_LC=$(echo "${APP,,}" | tr -d ' ')
 VERSION_FILE="$HOME/.${APP_LC}"
 
 msg_info "Installing core packages"
-export DEBIAN_FRONTEND=noninteractive
 $STD apt-get update
 declare -a packages=(
   git curl wget sudo
@@ -65,16 +75,44 @@ fi
 install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" "$APP_DIR"
 msg_ok "User and directories ready"
 
-msg_info "Installing Node.js (tools.func)"
-NODE_VERSION="${NODE_VERSION:-24}" setup_nodejs
+msg_info "Creating application directories"
+install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" /data
+install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" \
+  /data/m3us /data/epgs /data/logos \
+  /data/uploads/m3us /data/uploads/epgs \
+  /data/recordings /data/plugins
+install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" \
+  "${APP_DIR}/logo_cache" "${APP_DIR}/media"
+msg_ok "Application directories ready"
+
+msg_info "Installing Node.js"
+NODE_VERSION="$NODE_VERSION" setup_nodejs
 msg_ok "Node.js installed"
 
-msg_info "Installing PostgreSQL (tools.func)"
-PG_VERSION="${PG_VERSION:-16}" setup_postgresql
-$STD systemctl enable --now postgresql >/dev/null 2>&1 || true
+msg_info "Installing PostgreSQL"
+PG_VERSION="$PG_VERSION" setup_postgresql
 msg_ok "PostgreSQL installed"
 
+msg_info "Reconfiguring PostgreSQL ${PG_VERSION}/${PG_CLUSTER} to ${PG_DATADIR}"
+# Strict perms are REQUIRED by Postgres
+install -d -m 0700 -o postgres -g postgres "${PG_DATADIR}"
+# Drop default cluster (if present) and recreate pointing at the new datadir
+$STD sudo -u postgres pg_dropcluster --stop "${PG_VERSION}" "${PG_CLUSTER}"
+$STD sudo -u postgres pg_createcluster --datadir="${PG_DATADIR}" "${PG_VERSION}" "${PG_CLUSTER}"
+# Start this specific cluster and wait for readiness
+$STD pg_ctlcluster "${PG_VERSION}" "${PG_CLUSTER}" start
+for _ in {1..20}; do sudo -u postgres pg_isready -q && break; sleep 0.5; done
+msg_ok "PostgreSQL ${PG_VERSION}/${PG_CLUSTER} running from ${PG_DATADIR}"
+
 msg_info "Provisioning PostgreSQL database and role"
+POSTGRES_PASSWORD=$(openssl rand -base64 18 | tr -dc 'a-zA-Z0-9' | head -c13)
+{
+    echo "Dispatcharr-Credentials"
+    echo "Dispatcharr Database User: $POSTGRES_USER"
+    echo "Dispatcharr Database Password: $POSTGRES_PASSWORD"
+    echo "Dispatcharr Database Name: $POSTGRES_DB"
+} >>$CREDS_FILE
+chmod 0600 $CREDS_FILE
 $STD sudo -u postgres createdb "${POSTGRES_DB}"
 $STD sudo -u postgres psql -c "CREATE USER ${POSTGRES_USER} WITH PASSWORD '${POSTGRES_PASSWORD}';"
 $STD sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_DB} TO ${POSTGRES_USER};"
@@ -82,7 +120,7 @@ $STD sudo -u postgres psql -c "ALTER DATABASE ${POSTGRES_DB} OWNER TO ${POSTGRES
 $STD sudo -u postgres psql -d "${POSTGRES_DB}" -c "ALTER SCHEMA public OWNER TO ${POSTGRES_USER};"
 msg_ok "PostgreSQL database and role provisioned"
 
-msg_info "Fetching Dispatcharr (latest GitHub release via tools.func)"
+msg_info "Fetching Dispatcharr (latest GitHub release)"
 fetch_and_deploy_gh_release "dispatcharr" "Dispatcharr/Dispatcharr"
 $STD chown -R "$DISPATCH_USER:$DISPATCH_GROUP" "$APP_DIR"
 CURRENT_VERSION=""
@@ -121,16 +159,6 @@ sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}/frontend\"; rm -rf node_module
 sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}/frontend\"; if [ -f package-lock.json ]; then npm ci --silent --no-progress --no-audit --no-fund; else npm install --legacy-peer-deps --silent --no-progress --no-audit --no-fund; fi"
 $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}/frontend\"; npm run build --loglevel=error -- --logLevel error"
 msg_ok "Frontend built"
-
-msg_info "Creating application directories"
-install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" /data
-install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" \
-  /data/m3us /data/epgs /data/logos \
-  /data/uploads/m3us /data/uploads/epgs \
-  /data/recordings /data/plugins
-install -d -m 0755 -o "$DISPATCH_USER" -g "$DISPATCH_GROUP" \
-  "${APP_DIR}/logo_cache" "${APP_DIR}/media"
-msg_ok "Application directories ready"
 
 msg_info "Running Django migrations and collectstatic"
 $STD sudo -u "$DISPATCH_USER" bash -c "cd \"${APP_DIR}\"; source env/bin/activate; POSTGRES_DB='${POSTGRES_DB}' POSTGRES_USER='${POSTGRES_USER}' POSTGRES_PASSWORD='${POSTGRES_PASSWORD}' POSTGRES_HOST=localhost python manage.py migrate --noinput"
@@ -279,18 +307,18 @@ ln -sf "${NGINX_SITE}" "${NGINX_SITE_ENABLED}"
 [ -f /etc/nginx/sites-enabled/default ] && rm /etc/nginx/sites-enabled/default
 $STD nginx -t >/dev/null
 $STD systemctl restart nginx
-$STD systemctl enable nginx >/dev/null 2>&1 || true
+$STD systemctl enable nginx
 msg_ok "Systemd and Nginx configuration written"
 
 msg_info "Enabling and starting Dispatcharr services"
 $STD systemctl daemon-reexec
 $STD systemctl daemon-reload
-$STD systemctl enable --now dispatcharr dispatcharr-celery dispatcharr-celerybeat dispatcharr-daphne >/dev/null 2>&1 || true
+$STD systemctl enable --now dispatcharr dispatcharr-celery dispatcharr-celerybeat dispatcharr-daphne
 msg_ok "Services are running"
-  
+
 msg_ok "Installed ${APP} : v${CURRENT_VERSION}"
 
-echo "Postgres:"
+echo "Postgres (See $CREDS_FILE):"
 echo "    Database Name: $POSTGRES_DB"
 echo "    Database User: $POSTGRES_USER"
 echo "    Database Password: $POSTGRES_PASSWORD"

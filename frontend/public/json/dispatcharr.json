@@ -1,10 +1,10 @@
 {
-  "name": "IPTV & Stream Management Companion",
+  "name": "Dispatcharr",
   "slug": "dispatcharr",
   "categories": [
-    0
+    13
   ],
-  "date_created": "2025-10-07",
+  "date_created": "2025-10-16",
   "type": "ct",
   "updateable": true,
   "privileged": false,
