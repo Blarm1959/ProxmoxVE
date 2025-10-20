@@ -28,12 +28,7 @@ function update_script() {
     exit
   fi
 
-  if ! command -v yarn &>/dev/null; then
-    msg_info "Installing Yarn"
-    $STD npm install -g yarn
-    msg_ok "Installed Yarn"
-  fi
-
+  NODE_VERSION="22" NODE_MODULE="yarn" setup_nodejs
   export NODE_OPTIONS="--openssl-legacy-provider"
 
   RELEASE=$(curl -fsSL https://api.github.com/repos/NginxProxyManager/nginx-proxy-manager/releases/latest |

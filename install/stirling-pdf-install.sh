@@ -54,7 +54,6 @@ $STD apt install -y \
   libreoffice-base-core \
   libreoffice-script-provider-python \
   libreoffice-java-common \
-  unoconv \
   pngquant \
   weasyprint
 msg_ok "Installed LibreOffice Components"

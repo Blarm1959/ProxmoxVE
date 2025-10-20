@@ -10,7 +10,36 @@
 > [!CAUTION]
 Exercise vigilance regarding copycat or coat-tailing sites that seek to exploit the project's popularity for potentially malicious purposes.
 
+## 2025-10-20
+
+### 🚀 Updated Scripts
+
+  - #### 🐞 Bug Fixes
+
+    - Paperless-AI: Increase CPU and RAM [@MickLesk](https://github.com/MickLesk) ([#8507](https://github.com/community-scripts/ProxmoxVE/pull/8507))
+
+  - #### ✨ New Features
+
+    - Enhance error message for container creation failure [@MickLesk](https://github.com/MickLesk) ([#8511](https://github.com/community-scripts/ProxmoxVE/pull/8511))
+    - Filebrowser-Quantum: change initial config to newer default [@MickLesk](https://github.com/MickLesk) ([#8497](https://github.com/community-scripts/ProxmoxVE/pull/8497))
+
+  - #### 💥 Breaking Changes
+
+    - Remove: GoMFT [@MickLesk](https://github.com/MickLesk) ([#8499](https://github.com/community-scripts/ProxmoxVE/pull/8499))
+
+  - #### 🔧 Refactor
+
+    - jellyfin: add: intel dependencies [@CrazyWolf13](https://github.com/CrazyWolf13) ([#8508](https://github.com/community-scripts/ProxmoxVE/pull/8508))
+    - Jellyfin: ensure libjemalloc is used / increase hdd space [@MickLesk](https://github.com/MickLesk) ([#8494](https://github.com/community-scripts/ProxmoxVE/pull/8494))
+
 ## 2025-10-19
+
+### 🚀 Updated Scripts
+
+  - #### 🐞 Bug Fixes
+
+    - rwMarkable: Increase RAM [@vhsdream](https://github.com/vhsdream) ([#8482](https://github.com/community-scripts/ProxmoxVE/pull/8482))
+    - changedetection: fix: update [@CrazyWolf13](https://github.com/CrazyWolf13) ([#8480](https://github.com/community-scripts/ProxmoxVE/pull/8480))
 
 ## 2025-10-18
 
